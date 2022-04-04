@@ -1,0 +1,79 @@
+package config
+
+import "github.com/ml444/glog/levels"
+
+type Config struct {
+	Logger  *LoggerConfig  `json:"logger"`
+	Engine  *EngineConfig  `json:"engine"`
+	Handler *HandlerConfig `json:"handler"`
+}
+
+type LoggerConfig struct {
+	Name  string
+	Level levels.LogLevel
+}
+
+type EngineConfig struct {
+	LogCacheSize int
+
+	EnableReport    bool
+	ReportCacheSize int
+	ReportLevel     levels.LogLevel
+}
+
+type HandlerConfig struct {
+	CommonConfig *BaseHandlerConfig
+	ReportConfig *BaseHandlerConfig
+}
+
+type BaseHandlerConfig struct {
+	HandlerType uint8
+	File        *FileHandlerConfig
+	Stream      *StreamHandlerConfig
+	Syslog      *SyslogHandlerConfig
+
+	Formatter *FormatterConfig
+	Filter    *FilterConfig
+}
+
+type FileHandlerConfig struct {
+	Rotator *FileRotatorConfig
+}
+type FileRotatorConfig struct {
+	Type        int8
+	FileDir     string
+	FileName    string
+	MaxFileSize int64
+	BackupCount int
+
+	// TimeRotator and TimeAndSizeRotator
+	When         uint8
+	IntervalStep int64
+	SuffixFmt    string
+	ReMatch      string
+}
+
+type StreamHandlerConfig struct {
+}
+type SyslogHandlerConfig struct {
+}
+type FormatterConfig struct {
+	TimestampFormat string
+	FormatterType   uint8
+	Text            *TextFormatterConfig
+	Json            *JSONFormatterConfig
+	Xml             *XMLFormatterConfig
+}
+type TextFormatterConfig struct {
+	Pattern                string
+	EnableQuote            bool
+	EnableQuoteEmptyFields bool
+	DisableColors          bool
+}
+type JSONFormatterConfig struct {
+}
+
+type XMLFormatterConfig struct {
+}
+type FilterConfig struct {
+}
