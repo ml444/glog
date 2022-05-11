@@ -10,7 +10,7 @@ import (
 type IHandler interface {
 	//Emit(msg []byte) error
 
-	//Init(dir, name string) error
+	//init(dir, name string) error
 	Emit(entry *message.Entry) error
 	Flush()
 	Sync() error

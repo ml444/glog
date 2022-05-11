@@ -22,6 +22,14 @@ const (
 	FileRotatorWhenMinute = 2
 	FileRotatorWhenHour   = 3
 	FileRotatorWhenDay    = 4
+
+	FileRotatorSuffixFmt1 = "20060102150405"
+	FileRotatorSuffixFmt2 = "2006-01-02T15-04-05"
+	FileRotatorSuffixFmt3 = "2006-01-02_15-04-05"
+
+	FileRotatorReMatch1 = "^\\d{14}(\\.\\w+)?$"
+	FileRotatorReMatch2 = "^\\d{4}-\\d{2}-\\d{2}T\\d{2}-\\d{2}-\\d{2}(\\.\\w+)?$"
+	FileRotatorReMatch3 = "^\\d{4}-\\d{2}-\\d{2}_\\d{2}-\\d{2}-\\d{2}(\\.\\w+)?$"
 )
 
 const (
@@ -30,15 +38,16 @@ const (
 	defaultMaxFileSize int64 = 4 * 1024 * 1024 * 1024
 
 	defaultLogDir       string = "."
-	defaultLogName       string = "glog"
+	defaultLogName      string = ""
 	defaultReportLogDir string = "."
 )
 
 func NewDefaultConfig() *Config {
 	return &Config{
 		Logger: &LoggerConfig{
-			Name:  "UNKNOWN",
-			Level: levels.InfoLevel,
+			Name:           "UNKNOWN",
+			Level:          levels.InfoLevel,
+			IsRecordCaller: true,
 		},
 		Engine: &EngineConfig{
 			LogCacheSize: 100000,
@@ -48,50 +57,45 @@ func NewDefaultConfig() *Config {
 			ReportLevel:     levels.WarnLevel,
 		},
 		Handler: &HandlerConfig{
-			CommonConfig: &BaseHandlerConfig{
+			LogHandlerConfig: &BaseHandlerConfig{
 				HandlerType: HandlerTypeFile,
 				File: &FileHandlerConfig{
-					Rotator: &FileRotatorConfig{
-						Type:         FileRotatorTypeTimeAndSize,
-						FileDir:      defaultLogDir,
-						FileName:     defaultLogName,
-						MaxFileSize:  defaultMaxFileSize,
-						When:         FileRotatorWhenHour,
-						BackupCount:  50,
-						IntervalStep: 1,
-						SuffixFmt:    "2006010215",
-						ReMatch:      "",
-					},
+					Type:         FileRotatorTypeTimeAndSize,
+					FileDir:      defaultLogDir,
+					FileName:     defaultLogName,
+					MaxFileSize:  defaultMaxFileSize,
+					When:         FileRotatorWhenHour,
+					BackupCount:  50,
+					IntervalStep: 1,
+					SuffixFmt:    "2006010215",
+					ReMatch:      "^\\d{12}(\\.\\w+)?$",
 				},
 				Formatter: &FormatterConfig{
-					FormatterType: FormatterTypeText,
+					FormatterType:   FormatterTypeText,
 					TimestampFormat: DefaultTimestampFormat,
 					Text: &TextFormatterConfig{
-						Pattern:                "%[ServiceName]s (%[Pid]d,%[RoutineId]d) %[Level]s %[FileName]s:%[CallerName]s:%[CallerLine]d %[Message]v",
+						Pattern:                "%[LogName]s (%[Pid]d,%[RoutineId]d) %[Level]s %[FileName]s:%[CallerName]s:%[CallerLine]d %[Message]v",
 						EnableQuote:            false,
 						EnableQuoteEmptyFields: false,
 						DisableColors:          false,
 					},
 				},
 			},
-			ReportConfig: &BaseHandlerConfig{
+			ReportHandlerConfig: &BaseHandlerConfig{
 				HandlerType: HandlerTypeFile,
 				File: &FileHandlerConfig{
-					Rotator: &FileRotatorConfig{
-						Type:        FileRotatorTypeSize,
-						FileDir:     defaultReportLogDir,
-						FileName:    defaultLogName,
-						MaxFileSize: defaultMaxFileSize,
-						BackupCount: 50,
-					},
+					Type:        FileRotatorTypeSize,
+					FileDir:     defaultReportLogDir,
+					FileName:    defaultLogName,
+					MaxFileSize: defaultMaxFileSize,
+					BackupCount: 50,
 				},
 				Formatter: &FormatterConfig{
 					TimestampFormat: DefaultTimestampFormat,
-					FormatterType: FormatterTypeJson,
-					Json: &JSONFormatterConfig{},
+					FormatterType:   FormatterTypeJson,
+					Json:            &JSONFormatterConfig{},
 				},
 			},
 		},
-
 	}
 }

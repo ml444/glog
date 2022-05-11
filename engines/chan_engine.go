@@ -1,41 +1,36 @@
 package engines
 
 import (
-	"errors"
-	"fmt"
 	"github.com/ml444/glog/config"
 	"github.com/ml444/glog/handlers"
 	"github.com/ml444/glog/levels"
 	"github.com/ml444/glog/message"
-	"strings"
 )
 
-
 type ChanEngine struct {
-	cfg             *config.Config
-	msgHandlers     []handlers.IHandler
-	msgChan         chan *message.Entry
-	warnChan        chan *message.Entry
-	reportChan      chan *message.Entry
-	doneChan        chan bool
-	enableReport    bool
-	enableSaveAsErr bool
-	warmLevel       levels.LogLevel
+	cfg          *config.Config
+	msgHandlers  []handlers.IHandler
+	msgChan      chan *message.Entry
+	reportChan   chan *message.Entry
+	doneChan     chan bool
+	enableReport bool
+	reportLevel  levels.LogLevel
+
+	OnError func(msg *message.Entry, err error)
 }
 
 func NewChanEngine(cfg *config.Config) *ChanEngine {
 	return &ChanEngine{
-		cfg:             cfg,
-		enableReport:    cfg.Engine.EnableReport,
+		cfg:          cfg,
+		enableReport: cfg.Engine.EnableReport,
 	}
 }
 
-func (e *ChanEngine) Start() {
-	// 启动常规日志处理程序
-	handler, err := handlers.GetNewHandler(e.cfg.Handler.CommonConfig)
+func (e *ChanEngine) Start() error {
+	handler, err := handlers.GetNewHandler(e.cfg.Handler.LogHandlerConfig)
 	if err != nil {
 		e.doneChan <- true
-		return
+		return err
 	}
 	e.msgHandlers = append(e.msgHandlers, handler)
 	go func() {
@@ -43,8 +38,8 @@ func (e *ChanEngine) Start() {
 			select {
 			case msg := <-e.msgChan:
 				err = handler.Emit(msg)
-				if err != nil {
-					println(err)
+				if err != nil && e.OnError != nil {
+					e.OnError(msg, err)
 				}
 			case <-e.doneChan:
 				e.Stop()
@@ -52,23 +47,21 @@ func (e *ChanEngine) Start() {
 			}
 		}
 	}()
-
-	// 判断是否启动上报处理程序
 	if e.enableReport {
-		reportHandler, err := handlers.GetNewHandler(e.cfg.Handler.ReportConfig)
+		var reportHandler handlers.IHandler
+		reportHandler, err = handlers.GetNewHandler(e.cfg.Handler.ReportHandlerConfig)
 		if err != nil {
 			e.doneChan <- true
-			return
+			return err
 		}
 		e.msgHandlers = append(e.msgHandlers, reportHandler)
 		go func() {
-
 			for {
 				select {
 				case msg := <-e.reportChan:
-					err = handler.Emit(msg)
+					err = reportHandler.Emit(msg)
 					if err != nil {
-						fmt.Printf("err: %v \n", err)
+						println(err)
 					}
 				case <-e.doneChan:
 					e.Stop()
@@ -77,56 +70,35 @@ func (e *ChanEngine) Start() {
 			}
 		}()
 	}
-
-}
-func (e *ChanEngine) Init() error {
-	//e.maxFileSize = defaultMaxFileSize
-	e.msgChan = make(chan *message.Entry, e.cfg.Engine.LogCacheSize)
-	if e.enableReport {
-		e.reportChan = make(chan *message.Entry, e.cfg.Engine.ReportCacheSize)
-	}
-	e.doneChan = make(chan bool, 1)
-	e.Start()
 	return nil
 }
+func (e *ChanEngine) Init() error {
+	e.msgChan = make(chan *message.Entry, e.cfg.Engine.LogCacheSize)
+	e.reportChan = make(chan *message.Entry, e.cfg.Engine.ReportCacheSize)
+	e.doneChan = make(chan bool, 1)
+	return e.Start()
+}
 
-func (e *ChanEngine) Send(entry *message.Entry) (err error) {
+func (e *ChanEngine) Send(entry *message.Entry) {
 	select {
 	case e.msgChan <- entry:
-	// sent
-	default:
-		//println("waring: buffer channel full")
-		err = errors.New("buffer channel full")
 	}
 
-	if e.enableReport {
+	if e.enableReport && entry.Level >= e.reportLevel {
 		select {
 		case e.reportChan <- entry:
-		default:
-			//println("waring: buffer channel full")
-			err = errors.New("buffer channel full")
 		}
 	}
-
-	if e.enableSaveAsErr && entry.Level >= e.warmLevel {
-		select {
-		case e.warnChan <- entry:
-		default:
-			//println("waring: buffer channel full")
-			err = errors.New("buffer channel full")
-		}
-	}
-	return err
+	return
 }
 
 func (e *ChanEngine) Sync() (err error) {
 	for _, h := range e.msgHandlers {
 		handler := h
 		go func() {
-			err2 := handler.Sync()
-			if err2 != nil {
-				fmt.Printf("err: %v \n", err2)
-				err = err2
+			err = handler.Sync()
+			if err != nil {
+				println(err)
 			}
 		}()
 	}
@@ -138,9 +110,3 @@ func (e *ChanEngine) Stop() {
 	}
 }
 
-func removeSuffixIfMatched(s string, suffix string) string {
-	if strings.HasSuffix(s, suffix) {
-		return s[0 : len(s)-len(suffix)]
-	}
-	return s
-}

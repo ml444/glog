@@ -4,7 +4,7 @@ import "github.com/ml444/glog/message"
 
 type IEngine interface {
 	Init() error
-	Send(event *message.Entry) error
+	Send(event *message.Entry)
 	Sync() error
 	Stop()
 }

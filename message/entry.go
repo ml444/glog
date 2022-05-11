@@ -10,12 +10,12 @@ import (
 )
 
 type Entry struct {
-	ServiceName string
-	FileName    string
-	CallerName  string
-	CallerLine  int
-	Pid         int
-	RoutineId   int64
+	LogName    string
+	FileName   string
+	CallerName string
+	CallerLine int
+	Pid        int
+	RoutineId  int64
 
 	Ip       string
 	HostName string
@@ -39,7 +39,7 @@ func (e Entry) IsRecordCaller() bool {
 
 const (
 	maxCallerDepth int = 25
-	knownFrames    int = 4
+	knownFrames    int = 6
 )
 
 var (

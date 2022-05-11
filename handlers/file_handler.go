@@ -22,10 +22,12 @@ type FileHandler struct {
 	flushChan    chan bool
 	workerDone   bool
 	workerDoneMu sync.Mutex
+
+	ErrorCallback func(err error)
 }
 
 func NewFileHandler(handlerCfg *config.FileHandlerConfig, formatter formatters.IFormatter, filter filters.IFilter) (*FileHandler, error) {
-	rotator, err := GetRotator4Config(handlerCfg.Rotator)
+	rotator, err := GetRotator4Config(handlerCfg)
 	if err != nil {
 		return nil, err
 	}
@@ -105,9 +107,15 @@ func (h *FileHandler) flushWorker() {
 			}
 		OUT:
 			if len(bb) == 0 {
-				_ = h.realWrite(buf)
+				err := h.realWrite(buf)
+				if err != nil && h.ErrorCallback != nil {
+					h.ErrorCallback(err)
+				}
 			} else {
-				_ = h.realWrite(bb)
+				err := h.realWrite(bb)
+				if err != nil && h.ErrorCallback != nil {
+					h.ErrorCallback(err)
+				}
 			}
 		case <-h.flushChan:
 			ok := true

@@ -9,8 +9,9 @@ type Config struct {
 }
 
 type LoggerConfig struct {
-	Name  string
-	Level levels.LogLevel
+	Name           string
+	Level          levels.LogLevel
+	IsRecordCaller bool
 }
 
 type EngineConfig struct {
@@ -22,8 +23,8 @@ type EngineConfig struct {
 }
 
 type HandlerConfig struct {
-	CommonConfig *BaseHandlerConfig
-	ReportConfig *BaseHandlerConfig
+	LogHandlerConfig    *BaseHandlerConfig
+	ReportHandlerConfig *BaseHandlerConfig
 }
 
 type BaseHandlerConfig struct {
@@ -37,9 +38,6 @@ type BaseHandlerConfig struct {
 }
 
 type FileHandlerConfig struct {
-	Rotator *FileRotatorConfig
-}
-type FileRotatorConfig struct {
 	Type        int8
 	FileDir     string
 	FileName    string
@@ -51,7 +49,21 @@ type FileRotatorConfig struct {
 	IntervalStep int64
 	SuffixFmt    string
 	ReMatch      string
+	//Rotator *FileRotatorConfig
 }
+//type FileRotatorConfig struct {
+//	Type        int8
+//	FileDir     string
+//	FileName    string
+//	MaxFileSize int64
+//	BackupCount int
+//
+//	// TimeRotator and TimeAndSizeRotator
+//	When         uint8
+//	IntervalStep int64
+//	SuffixFmt    string
+//	ReMatch      string
+//}
 
 type StreamHandlerConfig struct {
 }

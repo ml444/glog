@@ -16,7 +16,6 @@ import (
 )
 
 type ILogger interface {
-	GetLogger(string) ILogger
 	GetLevel() levels.LogLevel
 	SetLevel(levels.LogLevel)
 	//SetField(key string, fn FieldFunc)
@@ -37,6 +36,7 @@ type ILogger interface {
 	Fatalf(template string, args ...interface{})
 	Panicf(template string, args ...interface{})
 
+	Init() error
 	Stop()
 	Sync() error
 }
@@ -62,23 +62,31 @@ type Logger struct {
 	// Function to exit the application, defaults to `os.Exit()`
 	ExitFunc       ExitFunc
 	ExitOnFatal    bool
-	IsReportCaller bool
+	IsRecordCaller bool
 }
 
 type FieldFunc func(...interface{}) string
 type ExitFunc func(int)
+
+func GetLogger(name string) ILogger {
+	cfg := config.NewDefaultConfig()
+	cfg.Logger.Name = name
+	return NewLogger(cfg)
+}
 
 // NewLogger returns a new ILogger
 func NewLogger(cfg *config.Config) *Logger {
 	if cfg == nil {
 		cfg = config.NewDefaultConfig()
 	}
+	lCfg := cfg.Logger
 	return &Logger{
-		Name:        cfg.Logger.Name,
-		Level:       cfg.Logger.Level,
+		Name:        lCfg.Name,
+		Level:       lCfg.Level,
 		ExitOnFatal: true,
 		ExitFunc:    os.Exit,
 		engine:      engines.NewChanEngine(cfg),
+		IsRecordCaller: lCfg.IsRecordCaller,
 	}
 }
 
@@ -94,34 +102,27 @@ func (l Logger) Sync() error {
 	return l.engine.Sync()
 }
 
-func (l *Logger) GetLogger(name string) ILogger {
-	cfg := config.NewDefaultConfig()
-	cfg.Logger.Name = name
-	return NewLogger(cfg)
-}
-
 func (l *Logger) write(level levels.LogLevel, msg interface{}) {
 	routineId := goid.Get()
 	entry := &message.Entry{
-		ServiceName: l.Name,
-		HostName:    hostName,
-		Ip:          ip,
-		Pid:         pid,
-		RoutineId:   routineId,
-		Message:     msg,
-		Time:        time.Now(),
-		Level:       level,
-		Caller:      message.GetCaller(),
-		ErrMsg:      "",
+		LogName:   l.Name,
+		HostName:  hostName,
+		Ip:        ip,
+		Pid:       pid,
+		RoutineId: routineId,
+		Message:   msg,
+		Time:      time.Now(),
+		Level:     level,
+		ErrMsg:    "",
 	}
 	if l.TradeIdFunc != nil {
 		entry.TradeId = l.TradeIdFunc()
 	}
 
-	if l.IsReportCaller {
+	if l.IsRecordCaller {
 		entry.Caller = message.GetCaller()
 	}
-	_ = l.engine.Send(entry)
+	l.engine.Send(entry)
 
 }
 
@@ -150,7 +151,7 @@ func (l *Logger) Log(lvl levels.LogLevel, args ...interface{}) {
 		//os.Exit(1)
 	}
 	if lvl == levels.PanicLevel {
-		panic("")
+		panic(msg)
 	}
 }
 

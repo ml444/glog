@@ -124,7 +124,7 @@ func (f *TextFormatter) Format(entry *message.Entry) ([]byte, error) {
 
 func (f *TextFormatter) ColorRender(b *bytes.Buffer, entry *message.Entry) {
 	// mod
-	b.WriteString(entry.ServiceName)
+	b.WriteString(entry.LogName)
 
 	routineId := goid.Get()
 
@@ -147,8 +147,10 @@ func (f *TextFormatter) ColorRender(b *bytes.Buffer, entry *message.Entry) {
 
 	var callerName, callerFile string
 	var callerLine int
-	if entry.CallerName == "" || entry.CallerLine == 0 {
-		callerFile, callerName, callerLine = util.GetCallerInfo(4)
+	if c := entry.Caller; c != nil {
+		callerFile = c.File
+		callerName = c.Function
+		callerLine = c.Line
 	} else {
 		callerFile = entry.FileName
 		callerName = entry.CallerName
