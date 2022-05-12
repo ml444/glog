@@ -20,24 +20,25 @@ package formatters
 import (
 	"bytes"
 	"fmt"
-	"github.com/ml444/glog/config"
-	"github.com/ml444/glog/levels"
-	"github.com/ml444/glog/message"
-	"github.com/ml444/glog/util"
-	"github.com/petermattis/goid"
 	"path"
 	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/ml444/glog/config"
+	"github.com/ml444/glog/levels"
+	"github.com/ml444/glog/message"
+	"github.com/ml444/glog/util"
+	"github.com/petermattis/goid"
 )
 
-//const (
+// const (
 //	red    = 31
 //	yellow = 33
 //	blue   = 36
 //	gray   = 37
-//)
+// )
 
 const (
 	colorRed = uint8(iota + 91)
@@ -57,7 +58,7 @@ var (
 )
 
 func init() {
-	//baseTimestamp = time.Now()
+	// baseTimestamp = time.Now()
 	red = fmt.Sprintf("\x1b[%dm", colorRed)
 	green = fmt.Sprintf("\x1b[%dm", colorGreen)
 	yellow = fmt.Sprintf("\x1b[%dm", colorYellow)
@@ -93,14 +94,14 @@ func (f *TextFormatter) init() {
 
 // Format renders a single log entry
 func (f *TextFormatter) Format(entry *message.Entry) ([]byte, error) {
-	//record := f.FillRecord(entry)
+	// record := f.FillRecord(entry)
 
 	b := &bytes.Buffer{}
 
-	//timestampFormat := f.TimestampFormat
-	//if timestampFormat == "" {
+	// timestampFormat := f.TimestampFormat
+	// if timestampFormat == "" {
 	//	timestampFormat = defaultTimestampFormat
-	//}
+	// }
 	if !f.DisableColors {
 		f.ColorRender(b, entry)
 	} else {
@@ -118,7 +119,7 @@ func (f *TextFormatter) Format(entry *message.Entry) ([]byte, error) {
 		}
 	}
 
-	//b.WriteByte('\n')
+	// b.WriteByte('\n')
 	return b.Bytes(), nil
 }
 
@@ -135,11 +136,11 @@ func (f *TextFormatter) ColorRender(b *bytes.Buffer, entry *message.Entry) {
 	b.WriteString(util.FormatTime(entry.Time))
 	b.WriteString(fmt.Sprintf(".%04d ", entry.Time.Nanosecond()/100000))
 
-	//if entry.ReqId != "" {
+	// if entry.ReqId != "" {
 	//	b.WriteString("<")
 	//	b.WriteString(entry.ReqId)
 	//	b.WriteString("> ")
-	//}
+	// }
 
 	// 日志级别
 	b.WriteString(Color(entry.Level))
@@ -168,7 +169,7 @@ func (f *TextFormatter) ColorRender(b *bytes.Buffer, entry *message.Entry) {
 
 	// 文本内容
 	f.appendValue(b, entry.Message)
-	//b.WriteString()
+	// b.WriteString()
 	b.WriteString("\n")
 
 }
@@ -207,14 +208,8 @@ func (f *TextFormatter) needsQuoting(text string) bool {
 	if f.EnableQuote {
 		return true
 	}
-	for _, ch := range text {
-		if !((ch >= 'a' && ch <= 'z') ||
-			(ch >= 'A' && ch <= 'Z') ||
-			(ch >= '0' && ch <= '9') ||
-			ch == '-' || ch == '.' || ch == '_' || ch == '/' || ch == '@' || ch == '^' || ch == '+') {
-			return true
-		}
-	}
+
+	// todo 特殊字符转义
 	return false
 }
 
