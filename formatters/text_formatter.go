@@ -78,7 +78,7 @@ type TextFormatter struct {
 	DisableColors          bool
 }
 
-func NewTextFormatter(formatterCfg *config.FormatterConfig) *TextFormatter {
+func NewTextFormatter(formatterCfg config.FormatterConfig) *TextFormatter {
 	return &TextFormatter{
 		strTemplate:            ParseStrTemp(formatterCfg.Text.Pattern),
 		TimestampFormat:        formatterCfg.TimestampFormat,

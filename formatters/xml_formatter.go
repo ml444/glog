@@ -9,7 +9,7 @@ type XMLFormatter struct {
 	TimestampFormat string
 }
 
-func NewXMLFormatter(formatterCfg *config.FormatterConfig) *XMLFormatter {
+func NewXMLFormatter(formatterCfg config.FormatterConfig) *XMLFormatter {
 	return &XMLFormatter{
 		TimestampFormat:   formatterCfg.TimestampFormat,
 	}

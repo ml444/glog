@@ -1,33 +1,40 @@
 package handlers
 
 import (
-	"fmt"
+	"github.com/ml444/glog/config"
 	"github.com/ml444/glog/filters"
 	"github.com/ml444/glog/formatters"
 	"github.com/ml444/glog/levels"
 	"github.com/ml444/glog/message"
 	"log/syslog"
-	"os"
 )
 
 type SyslogHandler struct {
 	//BaseHandler
-	Writer        *syslog.Writer
-	SyslogNetwork string
-	SyslogRaddr   string
+	Writer   *syslog.Writer
+	network  string
+	raddr    string
+	priority int
+	tag      string
 
 	formatter formatters.IFormatter
 	filter    filters.IFilter
 }
 
-func NewSyslogHandler(formatter formatters.IFormatter, filter filters.IFilter) (*SyslogHandler, error) {
-	return &SyslogHandler{
-		Writer:        nil,
-		SyslogNetwork: "",
-		SyslogRaddr:   "",
-		formatter:     formatter,
-		filter:        filter,
-	}, nil
+func NewSyslogHandler(cfg *config.SyslogHandlerConfig, formatter formatters.IFormatter, filter filters.IFilter) (*SyslogHandler, error) {
+	h := &SyslogHandler{
+		network:   cfg.Network,
+		raddr:     cfg.Address,
+		priority:  cfg.Priority,
+		tag:       cfg.Tag,
+		formatter: formatter,
+		filter:    filter,
+	}
+	err := h.Init()
+	if err != nil {
+		return nil, err
+	}
+	return h, nil
 }
 
 func (h *SyslogHandler) format(record *message.Entry) ([]byte, error) {
@@ -37,7 +44,12 @@ func (h *SyslogHandler) format(record *message.Entry) ([]byte, error) {
 	return nil, nil
 }
 
-func (h *SyslogHandler) Init(dir, name string) error {
+func (h *SyslogHandler) Init() error {
+	sysLogWriter, err := syslog.Dial(h.network, h.raddr, syslog.Priority(h.priority), h.tag)
+	if err != nil {
+		return err
+	}
+	h.Writer = sysLogWriter
 	return nil
 }
 
@@ -45,7 +57,6 @@ func (h *SyslogHandler) Emit(e *message.Entry) error {
 
 	msgByte, err := h.format(e)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Unable to read entry, %v", err)
 		return err
 	}
 
@@ -69,10 +80,6 @@ func (h *SyslogHandler) Emit(e *message.Entry) error {
 	}
 
 }
-
-//func (h *SyslogHandler) Emit(msgByte []byte) error  {
-//	return nil
-//}
 
 func (h *SyslogHandler) Sync() error {
 	return nil

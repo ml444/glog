@@ -25,7 +25,7 @@ func (f FieldMap) resolve(key fieldKey) string {
 	return string(key)
 }
 
-func GetNewFormatter(formatterCfg *config.FormatterConfig) IFormatter {
+func GetNewFormatter(formatterCfg config.FormatterConfig) IFormatter {
 	switch formatterCfg.FormatterType {
 	case config.FormatterTypeText:
 		return NewTextFormatter(formatterCfg)

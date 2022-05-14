@@ -44,22 +44,22 @@ const (
 
 func NewDefaultConfig() *Config {
 	return &Config{
-		Logger: &LoggerConfig{
+		Logger: LoggerConfig{
 			Name:           "UNKNOWN",
 			Level:          levels.InfoLevel,
 			IsRecordCaller: true,
 		},
-		Engine: &EngineConfig{
+		Engine: EngineConfig{
 			LogCacheSize: 100000,
 
 			EnableReport:    false,
 			ReportCacheSize: 10000,
 			ReportLevel:     levels.WarnLevel,
 		},
-		Handler: &HandlerConfig{
-			LogHandlerConfig: &BaseHandlerConfig{
+		Handler: HandlerConfig{
+			LogHandlerConfig: BaseHandlerConfig{
 				HandlerType: HandlerTypeFile,
-				File: &FileHandlerConfig{
+				File: FileHandlerConfig{
 					Type:         FileRotatorTypeTimeAndSize,
 					FileDir:      defaultLogDir,
 					FileName:     defaultLogName,
@@ -68,12 +68,12 @@ func NewDefaultConfig() *Config {
 					BackupCount:  50,
 					IntervalStep: 1,
 					SuffixFmt:    "2006010215",
-					ReMatch:      "^\\d{12}(\\.\\w+)?$",
+					ReMatch:      "^\\d{10}(\\.\\w+)?$",
 				},
-				Formatter: &FormatterConfig{
+				Formatter: FormatterConfig{
 					FormatterType:   FormatterTypeText,
 					TimestampFormat: DefaultTimestampFormat,
-					Text: &TextFormatterConfig{
+					Text: TextFormatterConfig{
 						Pattern:                "%[LogName]s (%[Pid]d,%[RoutineId]d) %[Level]s %[FileName]s:%[CallerName]s:%[CallerLine]d %[Message]v",
 						EnableQuote:            false,
 						EnableQuoteEmptyFields: false,
@@ -81,19 +81,19 @@ func NewDefaultConfig() *Config {
 					},
 				},
 			},
-			ReportHandlerConfig: &BaseHandlerConfig{
+			ReportHandlerConfig: BaseHandlerConfig{
 				HandlerType: HandlerTypeFile,
-				File: &FileHandlerConfig{
+				File: FileHandlerConfig{
 					Type:        FileRotatorTypeSize,
 					FileDir:     defaultReportLogDir,
 					FileName:    defaultLogName,
 					MaxFileSize: defaultMaxFileSize,
 					BackupCount: 50,
 				},
-				Formatter: &FormatterConfig{
+				Formatter: FormatterConfig{
 					TimestampFormat: DefaultTimestampFormat,
 					FormatterType:   FormatterTypeJson,
-					Json:            &JSONFormatterConfig{},
+					Json:            JSONFormatterConfig{},
 				},
 			},
 		},

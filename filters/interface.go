@@ -10,6 +10,6 @@ type IFilter interface {
 }
 
 
-func GetNewFilter(filterCfg *config.FilterConfig) IFilter {
+func GetNewFilter(filterCfg config.FilterConfig) IFilter {
 	return nil
 }

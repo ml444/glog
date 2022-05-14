@@ -3,9 +3,9 @@ package config
 import "github.com/ml444/glog/levels"
 
 type Config struct {
-	Logger  *LoggerConfig  `json:"logger"`
-	Engine  *EngineConfig  `json:"engine"`
-	Handler *HandlerConfig `json:"handler"`
+	Logger  LoggerConfig  `json:"logger"`
+	Engine  EngineConfig  `json:"engine"`
+	Handler HandlerConfig `json:"handler"`
 }
 
 type LoggerConfig struct {
@@ -23,18 +23,18 @@ type EngineConfig struct {
 }
 
 type HandlerConfig struct {
-	LogHandlerConfig    *BaseHandlerConfig
-	ReportHandlerConfig *BaseHandlerConfig
+	LogHandlerConfig    BaseHandlerConfig
+	ReportHandlerConfig BaseHandlerConfig
 }
 
 type BaseHandlerConfig struct {
 	HandlerType uint8
-	File        *FileHandlerConfig
-	Stream      *StreamHandlerConfig
-	Syslog      *SyslogHandlerConfig
+	File        FileHandlerConfig
+	Stream      StreamHandlerConfig
+	Syslog      SyslogHandlerConfig
 
-	Formatter *FormatterConfig
-	Filter    *FilterConfig
+	Formatter FormatterConfig
+	Filter    FilterConfig
 }
 
 type FileHandlerConfig struct {
@@ -49,32 +49,22 @@ type FileHandlerConfig struct {
 	IntervalStep int64
 	SuffixFmt    string
 	ReMatch      string
-	//Rotator *FileRotatorConfig
 }
-//type FileRotatorConfig struct {
-//	Type        int8
-//	FileDir     string
-//	FileName    string
-//	MaxFileSize int64
-//	BackupCount int
-//
-//	// TimeRotator and TimeAndSizeRotator
-//	When         uint8
-//	IntervalStep int64
-//	SuffixFmt    string
-//	ReMatch      string
-//}
 
 type StreamHandlerConfig struct {
 }
 type SyslogHandlerConfig struct {
+	Network  string
+	Address  string
+	Priority int
+	Tag      string
 }
 type FormatterConfig struct {
 	TimestampFormat string
 	FormatterType   uint8
-	Text            *TextFormatterConfig
-	Json            *JSONFormatterConfig
-	Xml             *XMLFormatterConfig
+	Text            TextFormatterConfig
+	Json            JSONFormatterConfig
+	Xml             XMLFormatterConfig
 }
 type TextFormatterConfig struct {
 	Pattern                string

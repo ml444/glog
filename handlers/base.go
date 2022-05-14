@@ -3,11 +3,33 @@ package handlers
 import (
 	"errors"
 	"fmt"
+	"github.com/ml444/glog/config"
 	"github.com/ml444/glog/filters"
 	"github.com/ml444/glog/formatters"
 	"github.com/ml444/glog/message"
 )
 
+type IHandler interface {
+	Emit(entry *message.Entry) error
+	Flush()
+	Sync() error
+}
+
+func GetNewHandler(handlerCfg config.BaseHandlerConfig) (IHandler, error) {
+	formatter := formatters.GetNewFormatter(handlerCfg.Formatter)
+	filter := filters.GetNewFilter(handlerCfg.Filter)
+
+	switch handlerCfg.HandlerType {
+	case config.HandlerTypeFile:
+		return NewFileHandler(handlerCfg.File, formatter, filter)
+	case config.HandlerTypeStream:
+		return NewStreamHandler(formatter, filter)
+	case config.HandlerTypeSyslog:
+		return NewSyslogHandler(&handlerCfg.Syslog, formatter, filter)
+	default:
+		return NewSyslogHandler(&handlerCfg.Syslog, formatter, filter)
+	}
+}
 
 type BaseHandler struct {
 	formatter formatters.IFormatter

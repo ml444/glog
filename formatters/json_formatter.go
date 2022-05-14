@@ -25,7 +25,7 @@ type JSONFormatter struct {
 	PrettyPrint bool
 }
 
-func NewJSONFormatter(formatterCfg *config.FormatterConfig) *JSONFormatter {
+func NewJSONFormatter(formatterCfg config.FormatterConfig) *JSONFormatter {
 	return &JSONFormatter{
 		TimestampFormat:   formatterCfg.TimestampFormat,
 		CallerPrettyFunc:  nil,

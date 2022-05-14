@@ -129,7 +129,6 @@ func (r *SizeRotator) Close() error {
 	return r.file.Sync()
 }
 
-
 type TimeRotator struct {
 	cfg      *config.FileHandlerConfig
 	file     *os.File
@@ -282,12 +281,10 @@ func (r *TimeRotator) Close() error {
 	return r.file.Sync()
 }
 
-
-
 type TimeAndSizeRotator struct {
 	cfg         *config.FileHandlerConfig
 	file        *os.File
-	filename 	string
+	filename    string
 	filePath    string
 	maxSize     int64
 	backupCount int
@@ -303,15 +300,15 @@ type TimeAndSizeRotator struct {
 func NewTimeAndSizeRotator(cfg *config.FileHandlerConfig) (*TimeAndSizeRotator, error) {
 	r := &TimeAndSizeRotator{
 		cfg:          cfg,
-		filename: 	  cfg.FileName,
+		filename:     cfg.FileName,
 		filePath:     cfg.FileDir,
 		maxSize:      cfg.MaxFileSize,
 		backupCount:  cfg.BackupCount,
 		intervalStep: cfg.IntervalStep,
 		//interval:     cfg.Interval,
-		suffixFmt:    cfg.SuffixFmt,
-		reMatch:      cfg.ReMatch,
-		reCompile:    nil,
+		suffixFmt: cfg.SuffixFmt,
+		reMatch:   cfg.ReMatch,
+		reCompile: nil,
 	}
 	err := r.init()
 	if err != nil {
@@ -336,7 +333,7 @@ func (r *TimeAndSizeRotator) init() error {
 		r.rolloverAt = time.Now().Truncate(time.Hour).Unix() + r.interval
 	case config.FileRotatorWhenDay:
 		r.interval = 60 * 60 * 24
-		r.rolloverAt = time.Now().Truncate(time.Hour * 24).Unix() + r.interval
+		r.rolloverAt = time.Now().Truncate(time.Hour*24).Unix() + r.interval
 	default:
 		panic(fmt.Sprintf("Invalid rollover interval specified: %d", r.cfg.When))
 	}
@@ -373,7 +370,7 @@ func (r *TimeAndSizeRotator) NeedRollover(msg []byte) (*os.File, bool, error) {
 		if err != nil {
 			return r.file, false, err
 		} else {
-			if size + int64(len(msg)) >= r.maxSize {
+			if size+int64(len(msg)) >= r.maxSize {
 				return r.file, false, errors.New("maximum file size limit")
 			} else {
 				return r.file, false, nil
@@ -399,22 +396,25 @@ func (r *TimeAndSizeRotator) DoRollover() (*os.File, error) {
 	suffix := curTime.Format(r.suffixFmt)
 	if r.backupCount > 0 {
 		dir := r.cfg.FileDir
-		filename := r.cfg.FileName
+		filename := r.filename
 		filePreFix := filename + "."
 		pLen := len(filePreFix)
 		var delFileList []string
-		_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+		err = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
 			if info == nil || info.IsDir() {
 				return nil
 			}
 			if fn := info.Name(); strings.HasPrefix(fn, filePreFix) {
 				fileSuffix := fn[pLen:]
 				if r.reCompile.MatchString(fileSuffix) {
-					delFileList = append(delFileList, filepath.Join(path, fn))
+					delFileList = append(delFileList, path)
 				}
 			}
 			return nil
 		})
+		if err != nil {
+			return nil, err
+		}
 		if delFileLen := len(delFileList); delFileLen > r.backupCount {
 			sort.Strings(delFileList)
 			delFileList = delFileList[:delFileLen-r.backupCount]
@@ -443,7 +443,6 @@ func (r *TimeAndSizeRotator) Close() error {
 	}
 	return r.file.Sync()
 }
-
 
 func IsFileExist(name string) bool {
 	fileInfo, err := os.Stat(name)
