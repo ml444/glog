@@ -21,7 +21,10 @@ type SyslogHandler struct {
 	filter    filters.IFilter
 }
 
-func NewSyslogHandler(cfg *config.SyslogHandlerConfig, formatter formatters.IFormatter, filter filters.IFilter) (*SyslogHandler, error) {
+func NewSyslogHandler(handlerCfg *config.BaseHandlerConfig) (*SyslogHandler, error) {
+	formatter := formatters.GetNewFormatter(handlerCfg.Formatter)
+	filter := filters.GetNewFilter(handlerCfg.Filter)
+	cfg := handlerCfg.Syslog
 	h := &SyslogHandler{
 		network:   cfg.Network,
 		raddr:     cfg.Address,

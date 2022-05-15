@@ -15,18 +15,16 @@ type IHandler interface {
 }
 
 func GetNewHandler(handlerCfg config.BaseHandlerConfig) (IHandler, error) {
-	formatter := formatters.GetNewFormatter(handlerCfg.Formatter)
-	filter := filters.GetNewFilter(handlerCfg.Filter)
 
 	switch handlerCfg.HandlerType {
 	case config.HandlerTypeFile:
-		return NewFileHandler(handlerCfg.File, formatter, filter)
+		return NewFileHandler(&handlerCfg)
 	case config.HandlerTypeStream:
-		return NewStreamHandler(formatter, filter)
+		return NewStreamHandler(&handlerCfg)
 	case config.HandlerTypeSyslog:
-		return NewSyslogHandler(&handlerCfg.Syslog, formatter, filter)
+		return NewSyslogHandler(&handlerCfg)
 	default:
-		return NewSyslogHandler(&handlerCfg.Syslog, formatter, filter)
+		return NewFileHandler(&handlerCfg)
 	}
 }
 

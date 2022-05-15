@@ -3,6 +3,7 @@ package handlers
 import (
 	"errors"
 	"fmt"
+	"github.com/ml444/glog/config"
 	"github.com/ml444/glog/filters"
 	"github.com/ml444/glog/formatters"
 	"github.com/ml444/glog/message"
@@ -20,7 +21,9 @@ type StreamHandler struct {
 	filter    filters.IFilter
 }
 
-func NewStreamHandler(formatter formatters.IFormatter, filter filters.IFilter) (*StreamHandler, error) {
+func NewStreamHandler(handlerCfg *config.BaseHandlerConfig) (*StreamHandler, error) {
+	formatter := formatters.GetNewFormatter(handlerCfg.Formatter)
+	filter := filters.GetNewFilter(handlerCfg.Filter)
 	return &StreamHandler{
 		filter:    filter,
 		formatter: formatter,

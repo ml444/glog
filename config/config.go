@@ -46,7 +46,6 @@ type BaseHandlerConfig struct {
 	Formatter FormatterConfig
 	Filter    FilterConfig
 
-	ErrCallback func(err error)
 }
 
 type FileHandlerConfig struct {
@@ -61,6 +60,9 @@ type FileHandlerConfig struct {
 	IntervalStep int64
 	SuffixFmt    string
 	ReMatch      string
+
+
+	ErrCallback func(err error)
 }
 
 type StreamHandlerConfig struct {

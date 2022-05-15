@@ -65,6 +65,10 @@ func NewDefaultConfig() *Config {
 					IntervalStep: 1,
 					SuffixFmt:    "2006010215",
 					ReMatch:      "^\\d{10}(\\.\\w+)?$",
+
+					ErrCallback: func(err error) {
+						println("===> logger err: ", err)
+					},
 				},
 				Formatter: FormatterConfig{
 					FormatterType:   FormatterTypeText,
@@ -76,9 +80,6 @@ func NewDefaultConfig() *Config {
 						DisableColors:          false,
 					},
 				},
-				ErrCallback: func(err error) {
-					println("===> logger err: ", err)
-				},
 			},
 			ReportHandlerConfig: BaseHandlerConfig{
 				HandlerType: HandlerTypeFile,
@@ -88,14 +89,15 @@ func NewDefaultConfig() *Config {
 					FileName:    "report",
 					MaxFileSize: defaultMaxFileSize,
 					BackupCount: 50,
+
+					ErrCallback: func(err error) {
+						println("===> report err: ", err)
+					},
 				},
 				Formatter: FormatterConfig{
 					TimestampFormat: DefaultTimestampFormat,
 					FormatterType:   FormatterTypeJson,
 					Json:            JSONFormatterConfig{},
-				},
-				ErrCallback: func(err error) {
-					println("===> report err: ", err)
 				},
 			},
 		},

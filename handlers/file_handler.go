@@ -27,8 +27,10 @@ type FileHandler struct {
 	ErrorCallback func(err error)
 }
 
-func NewFileHandler(handlerCfg config.FileHandlerConfig, formatter formatters.IFormatter, filter filters.IFilter) (*FileHandler, error) {
-	rotator, err := GetRotator4Config(&handlerCfg)
+func NewFileHandler(handlerCfg *config.BaseHandlerConfig) (*FileHandler, error) {
+	formatter := formatters.GetNewFormatter(handlerCfg.Formatter)
+	filter := filters.GetNewFilter(handlerCfg.Filter)
+	rotator, err := GetRotator4Config(&handlerCfg.File)
 	if err != nil {
 		return nil, err
 	}
@@ -36,6 +38,7 @@ func NewFileHandler(handlerCfg config.FileHandlerConfig, formatter formatters.IF
 		formatter:   formatter,
 		filter:      filter,
 		rotator:     rotator,
+		ErrorCallback: handlerCfg.File.ErrCallback,
 	}
 	h.init()
 	return h, nil
