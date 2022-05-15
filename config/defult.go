@@ -35,7 +35,7 @@ const (
 const (
 	DefaultTimestampFormat = time.RFC3339
 
-	defaultMaxFileSize int64 = 4 * 1024 * 1024 * 1024
+	defaultMaxFileSize int64 = 1024 * 1024 * 1024
 
 	defaultLogDir       string = "."
 	defaultLogName      string = ""
@@ -44,18 +44,14 @@ const (
 
 func NewDefaultConfig() *Config {
 	return &Config{
-		Logger: LoggerConfig{
-			Name:           "UNKNOWN",
-			Level:          levels.InfoLevel,
-			IsRecordCaller: true,
-		},
-		Engine: EngineConfig{
-			LogCacheSize: 100000,
+		LoggerName:           "UNKNOWN",
+		LoggerLevel:          levels.InfoLevel,
+		LoggerCacheSize: 100000,
 
-			EnableReport:    false,
-			ReportCacheSize: 10000,
-			ReportLevel:     levels.WarnLevel,
-		},
+		EnableReport:    false,
+		ReportLevel:     levels.ErrorLevel,
+		ReportCacheSize: 10000,
+		IsRecordCaller: true,
 		Handler: HandlerConfig{
 			LogHandlerConfig: BaseHandlerConfig{
 				HandlerType: HandlerTypeFile,
@@ -63,7 +59,7 @@ func NewDefaultConfig() *Config {
 					Type:         FileRotatorTypeTimeAndSize,
 					FileDir:      defaultLogDir,
 					FileName:     defaultLogName,
-					MaxFileSize:  defaultMaxFileSize,
+					MaxFileSize:  defaultMaxFileSize * 4,
 					When:         FileRotatorWhenHour,
 					BackupCount:  50,
 					IntervalStep: 1,
@@ -80,13 +76,16 @@ func NewDefaultConfig() *Config {
 						DisableColors:          false,
 					},
 				},
+				ErrCallback: func(err error) {
+					println("===> logger err: ", err)
+				},
 			},
 			ReportHandlerConfig: BaseHandlerConfig{
 				HandlerType: HandlerTypeFile,
 				File: FileHandlerConfig{
 					Type:        FileRotatorTypeSize,
 					FileDir:     defaultReportLogDir,
-					FileName:    defaultLogName,
+					FileName:    "report",
 					MaxFileSize: defaultMaxFileSize,
 					BackupCount: 50,
 				},
@@ -94,6 +93,9 @@ func NewDefaultConfig() *Config {
 					TimestampFormat: DefaultTimestampFormat,
 					FormatterType:   FormatterTypeJson,
 					Json:            JSONFormatterConfig{},
+				},
+				ErrCallback: func(err error) {
+					println("===> report err: ", err)
 				},
 			},
 		},

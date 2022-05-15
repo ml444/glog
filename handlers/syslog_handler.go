@@ -81,7 +81,7 @@ func (h *SyslogHandler) Emit(e *message.Entry) error {
 
 }
 
-func (h *SyslogHandler) Sync() error {
+func (h *SyslogHandler) Close() error {
 	return nil
 }
 

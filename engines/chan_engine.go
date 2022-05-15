@@ -22,7 +22,8 @@ type ChanEngine struct {
 func NewChanEngine(cfg *config.Config) *ChanEngine {
 	return &ChanEngine{
 		cfg:          cfg,
-		enableReport: cfg.Engine.EnableReport,
+		enableReport: cfg.EnableReport,
+		reportLevel:  cfg.ReportLevel,
 	}
 }
 
@@ -42,7 +43,10 @@ func (e *ChanEngine) Start() error {
 					e.OnError(msg, err)
 				}
 			case <-e.doneChan:
-				e.Stop()
+				err = e.Stop()
+				if err != nil && e.OnError != nil {
+					e.OnError(&message.Entry{}, err)
+				}
 				return
 			}
 		}
@@ -60,11 +64,14 @@ func (e *ChanEngine) Start() error {
 				select {
 				case msg := <-e.reportChan:
 					err = reportHandler.Emit(msg)
-					if err != nil {
-						println(err)
+					if err != nil && e.OnError != nil {
+						e.OnError(msg, err)
 					}
 				case <-e.doneChan:
-					e.Stop()
+					err = e.Stop()
+					if err != nil && e.OnError != nil {
+						e.OnError(&message.Entry{}, err)
+					}
 					return
 				}
 			}
@@ -73,8 +80,8 @@ func (e *ChanEngine) Start() error {
 	return nil
 }
 func (e *ChanEngine) Init() error {
-	e.msgChan = make(chan *message.Entry, e.cfg.Engine.LogCacheSize)
-	e.reportChan = make(chan *message.Entry, e.cfg.Engine.ReportCacheSize)
+	e.msgChan = make(chan *message.Entry, e.cfg.LoggerCacheSize)
+	e.reportChan = make(chan *message.Entry, e.cfg.ReportCacheSize)
 	e.doneChan = make(chan bool, 1)
 	return e.Start()
 }
@@ -92,21 +99,12 @@ func (e *ChanEngine) Send(entry *message.Entry) {
 	return
 }
 
-func (e *ChanEngine) Sync() (err error) {
+func (e *ChanEngine) Stop() (err error) {
 	for _, h := range e.msgHandlers {
-		handler := h
-		go func() {
-			err = handler.Sync()
-			if err != nil {
-				println(err)
-			}
-		}()
+		err = h.Close()
+		if err != nil {
+			println(err)
+		}
 	}
 	return nil
 }
-func (e *ChanEngine) Stop() {
-	for _, handler := range e.msgHandlers {
-		handler.Flush()
-	}
-}
-

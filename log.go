@@ -23,8 +23,7 @@ func InitLog(opts ...config.OptionFunc) error {
 			return err
 		}
 	}
-	l := NewLogger(Config)
-	err := l.Init()
+	l, err := NewLogger(Config)
 	if err != nil {
 		return err
 	}
@@ -50,8 +49,7 @@ func Fatalf(template string, args ...interface{}) { logger.Fatalf(template, args
 
 func Exit() error {
 	if logger != nil {
-		logger.Stop()
-		return logger.Sync()
+		return logger.Stop()
 	}
 	return errors.New("logger not open")
 }

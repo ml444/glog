@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"errors"
+	"fmt"
 	"github.com/ml444/glog/config"
 	"github.com/ml444/glog/filters"
 	"github.com/ml444/glog/formatters"
@@ -65,7 +66,6 @@ func (h *FileHandler) realWrite(buf []byte) error {
 	if file == nil {
 		return errors.New("file not open")
 	}
-
 	n, err := file.Write(buf)
 	if err != nil {
 		if err == io.ErrShortWrite {
@@ -87,11 +87,13 @@ func (h *FileHandler) flushWorker() {
 	for {
 		select {
 		case buf := <-h.bufChan:
+			//fmt.Println("111", string(buf))
 			var bb []byte
 			var total int
 			for {
 				select {
 				case more := <-h.bufChan:
+					//fmt.Println("222", string(more))
 					if len(bb) == 0 {
 						bb = append(bb, buf...)
 						total += len(buf)
@@ -108,30 +110,37 @@ func (h *FileHandler) flushWorker() {
 		OUT:
 			if len(bb) == 0 {
 				err := h.realWrite(buf)
+				if err != nil {
+					fmt.Println("==>",err)
+				}
 				if err != nil && h.ErrorCallback != nil {
 					h.ErrorCallback(err)
 				}
 			} else {
 				err := h.realWrite(bb)
+				if err != nil {
+					fmt.Println("==>",err)
+				}
 				if err != nil && h.ErrorCallback != nil {
 					h.ErrorCallback(err)
 				}
 			}
 		case <-h.flushChan:
-			ok := true
-			for ok {
+			for {
 				select {
 				case buf := <-h.bufChan:
-					_ = h.realWrite(buf)
+					err := h.realWrite(buf)
+					if err != nil && h.ErrorCallback != nil {
+						h.ErrorCallback(err)
+					}
 				default:
-					ok = false
-					break
+					h.workerDoneMu.Lock()
+					h.workerDone = true
+					h.workerDoneMu.Unlock()
+					return
 				}
 			}
-			h.workerDoneMu.Lock()
-			h.workerDone = true
-			h.workerDoneMu.Unlock()
-			return
+
 		}
 	}
 }
@@ -143,19 +152,6 @@ func (h *FileHandler) getWorkerDone() bool {
 	return res
 }
 
-func (h *FileHandler) Flush() {
-	select {
-	case h.flushChan <- true: // send
-	default: // channel full
-	}
-	for i := 0; i < 100; i++ {
-		if h.getWorkerDone() {
-			break
-		}
-		time.Sleep(50 * time.Microsecond)
-	}
-}
-
 func (h *FileHandler) Emit(entry *message.Entry) error {
 	if h.filter != nil {
 		if ok := h.filter.Filter(entry); !ok {
@@ -164,24 +160,48 @@ func (h *FileHandler) Emit(entry *message.Entry) error {
 		}
 	}
 
-	if h.formatter != nil {
-		msgByte, err := h.formatter.Format(entry)
-		if err != nil {
-			return err
-		}
+	if h.formatter == nil {
+		return errors.New("formatter is nil")
+	}
 
-		h.bufChan <- msgByte
-		//select {
-		//case h.bufChan <- msgByte:
-		//default:
-		//	println("waring: buffer channel isFull")
-		//	return errors.New("buffer channel isFull")
-		//}
+	msgByte, err := h.formatter.Format(entry)
+	if err != nil {
+		return err
+	}
+
+	//h.bufChan <- msgByte
+	select {
+	case h.bufChan <- msgByte:
+	default:
+		return errors.New("buffer is full")
 	}
 	return nil
 }
 
-func (h *FileHandler) Sync() error {
+//func (h *FileHandler) Flush()  {
+//	select {
+//	case h.flushChan <- true: // send
+//	default: // channel full
+//	}
+//	for i := 0; i < 100; i++ {
+//		if h.getWorkerDone() {
+//			break
+//		}
+//		time.Sleep(50 * time.Microsecond)
+//	}
+//
+//}
+func (h *FileHandler) Close() error {
+	select {
+	case h.flushChan <- true: // send
+	//default: // channel full
+	}
+	for i := 0; i < 100; i++ {
+		if h.getWorkerDone() {
+			break
+		}
+		time.Sleep(50 * time.Microsecond)
+	}
 	return h.rotator.Close()
 }
 

@@ -11,8 +11,7 @@ import (
 
 type IHandler interface {
 	Emit(entry *message.Entry) error
-	Flush()
-	Sync() error
+	Close() error
 }
 
 func GetNewHandler(handlerCfg config.BaseHandlerConfig) (IHandler, error) {

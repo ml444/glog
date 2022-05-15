@@ -73,13 +73,13 @@ func (f *JSONFormatter) FillRecord(entry *message.Entry) *message.Record {
 				funcVal, fileVal = f.CallerPrettyFunc(entry.Caller)
 			}
 			if funcVal != "" {
-				record.FuncName = funcVal
+				record.CallerName = funcVal
 			}
 			if fileVal != "" {
 				record.FileName = fileVal
 			}
 		} else {
-			record.FuncName = entry.CallerName
+			record.CallerName = entry.CallerName
 			record.FileName = fmt.Sprintf("%s:%d", entry.FileName, entry.CallerLine)
 		}
 	}

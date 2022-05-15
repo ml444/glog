@@ -3,24 +3,34 @@ package config
 import "github.com/ml444/glog/levels"
 
 type Config struct {
-	Logger  LoggerConfig  `json:"logger"`
-	Engine  EngineConfig  `json:"engine"`
+	LoggerName      string
+	LoggerLevel     levels.LogLevel
+	LoggerCacheSize int
+
+	EnableReport    bool
+	ReportLevel     levels.LogLevel
+	ReportCacheSize int
+
+	IsRecordCaller bool
+
+	//Logger  LoggerConfig  `json:"logger"`
+	//Engine  EngineConfig  `json:"engine"`
 	Handler HandlerConfig `json:"handler"`
 }
 
-type LoggerConfig struct {
-	Name           string
-	Level          levels.LogLevel
-	IsRecordCaller bool
-}
-
-type EngineConfig struct {
-	LogCacheSize int
-
-	EnableReport    bool
-	ReportCacheSize int
-	ReportLevel     levels.LogLevel
-}
+//type LoggerConfig struct {
+//	Name           string
+//	Level          levels.LogLevel
+//	IsRecordCaller bool
+//}
+//
+//type EngineConfig struct {
+//	LogCacheSize int
+//
+//	EnableReport    bool
+//	ReportCacheSize int
+//	ReportLevel     levels.LogLevel
+//}
 
 type HandlerConfig struct {
 	LogHandlerConfig    BaseHandlerConfig
@@ -35,6 +45,8 @@ type BaseHandlerConfig struct {
 
 	Formatter FormatterConfig
 	Filter    FilterConfig
+
+	ErrCallback func(err error)
 }
 
 type FileHandlerConfig struct {

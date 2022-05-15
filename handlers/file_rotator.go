@@ -35,6 +35,8 @@ func GetRotator4Config(cfg *config.FileHandlerConfig) (IRotator, error) {
 
 type SizeRotator struct {
 	file        *os.File
+	filename    string
+	fileDir     string
 	filePath    string
 	maxSize     int64
 	backupCount int
@@ -42,7 +44,8 @@ type SizeRotator struct {
 
 func NewSizeRotator(cfg *config.FileHandlerConfig) (*SizeRotator, error) {
 	r := SizeRotator{
-		filePath:    cfg.FileDir,
+		filename:    fmt.Sprintf("%s.log", cfg.FileName),
+		fileDir:     cfg.FileDir,
 		maxSize:     cfg.MaxFileSize,
 		backupCount: cfg.BackupCount,
 	}
@@ -53,7 +56,8 @@ func NewSizeRotator(cfg *config.FileHandlerConfig) (*SizeRotator, error) {
 	return &r, nil
 }
 func (r *SizeRotator) init() error {
-	err := mkdir(r.filePath)
+	r.filePath = filepath.Join(r.fileDir, r.filename)
+	err := mkdir(r.fileDir)
 	if err != nil {
 		panic(err)
 	}
@@ -61,21 +65,22 @@ func (r *SizeRotator) init() error {
 }
 func (r *SizeRotator) NeedRollover(msg []byte) (*os.File, bool, error) {
 	var err error
-	if r.file == nil {
-		r.file, err = open(r.filePath)
+	file := r.file
+	if file == nil {
+		file, err = open(r.filePath)
 		if err != nil {
-			fmt.Println(err)
 			return nil, false, err
 		}
+		r.file = file
 	}
 	if r.maxSize > 0 {
 		var size int64
-		size, err = r.file.Seek(0, io.SeekEnd)
-		if err == nil && size+int64(len(msg)) >= r.maxSize {
-			return r.file, true, nil
+		size, err = file.Seek(0, io.SeekEnd)
+		if err == nil && size + int64(len(msg)) >= r.maxSize {
+			return file, true, nil
 		}
 	}
-	return r.file, false, err
+	return file, false, err
 }
 
 func (r *SizeRotator) DoRollover() (*os.File, error) {
@@ -84,9 +89,9 @@ func (r *SizeRotator) DoRollover() (*os.File, error) {
 		_ = r.file.Close()
 	}
 	if r.backupCount > 0 {
-		for i := r.backupCount - 1; i <= 0; i-- {
-			sfn := fmt.Sprintf("%s.%d", r.filePath, i)
-			dfn := fmt.Sprintf("%s.%d", r.filePath, i+1)
+		for i := r.backupCount; i > 0; i-- {
+			sfn := fmt.Sprintf("%s.%d", r.filePath, i-1)
+			dfn := fmt.Sprintf("%s.%d", r.filePath, i)
 			if IsFileExist(sfn) {
 				if IsFileExist(dfn) {
 					err := os.Remove(dfn)
@@ -96,7 +101,7 @@ func (r *SizeRotator) DoRollover() (*os.File, error) {
 				}
 				err := os.Rename(sfn, dfn)
 				if err != nil {
-					panic(err)
+					return nil, err
 				}
 			}
 		}
@@ -110,7 +115,7 @@ func (r *SizeRotator) DoRollover() (*os.File, error) {
 		if IsFileExist(r.filePath) {
 			err := os.Rename(r.filePath, dfn)
 			if err != nil {
-				panic(err)
+				return nil, err
 			}
 		}
 	}
@@ -119,6 +124,7 @@ func (r *SizeRotator) DoRollover() (*os.File, error) {
 	if err != nil {
 		return nil, err
 	}
+	r.file = f
 	return f, nil
 }
 
@@ -232,7 +238,7 @@ func (r *TimeRotator) DoRollover() (*os.File, error) {
 	if IsFileExist(r.filePath) {
 		err := os.Rename(r.filePath, dfn)
 		if err != nil {
-			panic(err)
+			return nil, err
 		}
 	}
 	if r.backupCount > 0 {
@@ -370,7 +376,7 @@ func (r *TimeAndSizeRotator) NeedRollover(msg []byte) (*os.File, bool, error) {
 		if err != nil {
 			return r.file, false, err
 		} else {
-			if size+int64(len(msg)) >= r.maxSize {
+			if size + int64(len(msg)) >= r.maxSize {
 				return r.file, false, errors.New("maximum file size limit")
 			} else {
 				return r.file, false, nil

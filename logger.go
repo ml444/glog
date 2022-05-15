@@ -18,7 +18,6 @@ import (
 type ILogger interface {
 	GetLevel() levels.LogLevel
 	SetLevel(levels.LogLevel)
-	//SetField(key string, fn FieldFunc)
 
 	Debug(...interface{})
 	Info(...interface{})
@@ -36,9 +35,7 @@ type ILogger interface {
 	Fatalf(template string, args ...interface{})
 	Panicf(template string, args ...interface{})
 
-	Init() error
-	Stop()
-	Sync() error
+	Stop() error
 }
 
 var pid = 0
@@ -63,46 +60,46 @@ type Logger struct {
 	ExitFunc       ExitFunc
 	ExitOnFatal    bool
 	IsRecordCaller bool
+
+	isStop bool
 }
 
 type FieldFunc func(...interface{}) string
 type ExitFunc func(int)
 
-func GetLogger(name string) ILogger {
-	cfg := config.NewDefaultConfig()
-	cfg.Logger.Name = name
-	return NewLogger(cfg)
-}
-
 // NewLogger returns a new ILogger
-func NewLogger(cfg *config.Config) *Logger {
+func NewLogger(cfg *config.Config) (*Logger, error) {
 	if cfg == nil {
 		cfg = config.NewDefaultConfig()
 	}
-	lCfg := cfg.Logger
-	return &Logger{
-		Name:        lCfg.Name,
-		Level:       lCfg.Level,
-		ExitOnFatal: true,
-		ExitFunc:    os.Exit,
-		engine:      engines.NewChanEngine(cfg),
-		IsRecordCaller: lCfg.IsRecordCaller,
+	l := Logger{
+		Name:           cfg.LoggerName,
+		Level:          cfg.LoggerLevel,
+		ExitOnFatal:    true,
+		ExitFunc:       os.Exit,
+		engine:         engines.NewChanEngine(cfg),
+		IsRecordCaller: cfg.IsRecordCaller,
 	}
+	err := l.init()
+	if err != nil {
+		return nil, err
+	}
+	return &l, nil
 }
 
-func (l *Logger) Init() error {
+func (l *Logger) init() error {
 	return l.engine.Init()
 }
 
-func (l *Logger) Stop() {
-	l.engine.Stop()
+func (l *Logger) Stop() error {
+	l.isStop = true
+	return l.engine.Stop()
 }
 
-func (l Logger) Sync() error {
-	return l.engine.Sync()
-}
-
-func (l *Logger) write(level levels.LogLevel, msg interface{}) {
+func (l *Logger) send(level levels.LogLevel, msg interface{}) {
+	if l.isStop {
+		return
+	}
 	routineId := goid.Get()
 	entry := &message.Entry{
 		LogName:   l.Name,
@@ -113,7 +110,7 @@ func (l *Logger) write(level levels.LogLevel, msg interface{}) {
 		Message:   msg,
 		Time:      time.Now(),
 		Level:     level,
-		ErrMsg:    "",
+		//ErrMsg:    "",
 	}
 	if l.TradeIdFunc != nil {
 		entry.TradeId = l.TradeIdFunc()
@@ -141,14 +138,17 @@ func (l *Logger) Log(lvl levels.LogLevel, args ...interface{}) {
 		return
 	}
 	msg := fmt.Sprint(args...)
-	l.write(lvl, msg)
+	l.send(lvl, msg)
 
 	if lvl == levels.FatalLevel || lvl == levels.PanicLevel || lvl == levels.DPanicLevel {
 		l.PrintStack(4)
 	}
 	if l.ExitOnFatal && lvl == levels.FatalLevel {
-		l.ExitFunc(1)
-		//os.Exit(1)
+		err := l.Stop()
+		if err != nil {
+			println(err)
+		}
+		l.ExitFunc(-1)
 	}
 	if lvl == levels.PanicLevel {
 		panic(msg)
@@ -166,17 +166,20 @@ func (l *Logger) Logf(lvl levels.LogLevel, template string, args ...interface{})
 	} else if msg != "" && len(args) > 0 {
 		msg = fmt.Sprintf(template, args...)
 	}
-	l.write(lvl, msg)
+	l.send(lvl, msg)
 
 	if lvl == levels.FatalLevel || lvl == levels.PanicLevel || lvl == levels.DPanicLevel {
 		l.PrintStack(4)
 	}
 	if l.ExitOnFatal && lvl == levels.FatalLevel {
-		l.ExitFunc(1)
-		//os.Exit(1)
+		err := l.Stop()
+		if err != nil {
+			println(err)
+		}
+		l.ExitFunc(-1)
 	}
 	if lvl == levels.PanicLevel {
-		panic("")
+		panic(msg)
 	}
 }
 

@@ -78,7 +78,7 @@ func (h *StreamHandler) Flush() {
 	   	   self.release()
 	*/
 }
-func (h *StreamHandler) Sync() error {
+func (h *StreamHandler) Close() error {
 	return nil
 }
 
