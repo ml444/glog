@@ -424,11 +424,11 @@ func (r *TimeAndSizeRotator) DoRollover() (*os.File, error) {
 		if delFileLen := len(delFileList); delFileLen > r.backupCount {
 			sort.Strings(delFileList)
 			delFileList = delFileList[:delFileLen-r.backupCount]
-		}
-		for _, filePath := range delFileList {
-			err = os.Remove(filePath)
-			if err != nil {
-				return nil, err
+			for _, filePath := range delFileList {
+				err = os.Remove(filePath)
+				if err != nil {
+					return nil, err
+				}
 			}
 		}
 	}
