@@ -7,6 +7,7 @@ import (
 	"github.com/ml444/glog/filters"
 	"github.com/ml444/glog/formatters"
 	"github.com/ml444/glog/message"
+	"runtime"
 )
 
 type IHandler interface {
@@ -22,6 +23,9 @@ func GetNewHandler(handlerCfg config.BaseHandlerConfig) (IHandler, error) {
 	case config.HandlerTypeStream:
 		return NewStreamHandler(&handlerCfg)
 	case config.HandlerTypeSyslog:
+		if runtime.GOOS == "windows" {
+			return nil, errors.New("windows doesn't support syslog temporarily")
+		}
 		return NewSyslogHandler(&handlerCfg)
 	default:
 		return NewFileHandler(&handlerCfg)
