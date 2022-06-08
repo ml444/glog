@@ -35,19 +35,18 @@ func GetRotator4Config(cfg *config.FileHandlerConfig) (IRotator, error) {
 
 type SizeRotator struct {
 	file        *os.File
-	filename    string
-	fileDir     string
+	cfg         *config.FileHandlerConfig
+	//fileDir     string
 	filePath    string
 	maxSize     int64
-	backupCount int
+	//backupCount int
 }
 
 func NewSizeRotator(cfg *config.FileHandlerConfig) (*SizeRotator, error) {
+
 	r := SizeRotator{
-		filename:    fmt.Sprintf("%s.log", cfg.FileName),
-		fileDir:     cfg.FileDir,
+		cfg: cfg,
 		maxSize:     cfg.MaxFileSize,
-		backupCount: cfg.BackupCount,
 	}
 	err := r.init()
 	if err != nil {
@@ -56,13 +55,22 @@ func NewSizeRotator(cfg *config.FileHandlerConfig) (*SizeRotator, error) {
 	return &r, nil
 }
 func (r *SizeRotator) init() error {
-	r.filePath = filepath.Join(r.fileDir, r.filename)
-	err := mkdir(r.fileDir)
+	err := mkdir(r.cfg.FileDir)
 	if err != nil {
 		panic(err)
 	}
+	r.filePath = r.getFilepath()
 	return nil
 }
+func (r *SizeRotator) getFilepath() string {
+	var parties []string
+	if r.cfg.FileName != "" {
+		parties = append(parties, r.cfg.FileName)
+	}
+	parties = append(parties, r.cfg.FileSuffix)
+	return filepath.Join(r.cfg.FileDir, strings.Join(parties, "."))
+}
+
 func (r *SizeRotator) NeedRollover(msg []byte) (*os.File, bool, error) {
 	var err error
 	file := r.file
@@ -76,7 +84,7 @@ func (r *SizeRotator) NeedRollover(msg []byte) (*os.File, bool, error) {
 	if r.maxSize > 0 {
 		var size int64
 		size, err = file.Seek(0, io.SeekEnd)
-		if err == nil && size + int64(len(msg)) >= r.maxSize {
+		if err == nil && size+int64(len(msg)) >= r.maxSize {
 			return file, true, nil
 		}
 	}
@@ -88,8 +96,8 @@ func (r *SizeRotator) DoRollover() (*os.File, error) {
 		_ = r.file.Sync()
 		_ = r.file.Close()
 	}
-	if r.backupCount > 0 {
-		for i := r.backupCount; i > 0; i-- {
+	if r.cfg.BackupCount > 0 {
+		for i := r.cfg.BackupCount; i > 0; i-- {
 			sfn := fmt.Sprintf("%s.%d", r.filePath, i-1)
 			dfn := fmt.Sprintf("%s.%d", r.filePath, i)
 			if IsFileExist(sfn) {
@@ -288,19 +296,19 @@ func (r *TimeRotator) Close() error {
 }
 
 type TimeAndSizeRotator struct {
-	cfg         *config.FileHandlerConfig
-	file        *os.File
-	filename    string
-	filePath    string
-	maxSize     int64
-	backupCount int
-
-	intervalStep int64
-	interval     int64
-	suffixFmt    string
-	reMatch      string
-	rolloverAt   int64
-	reCompile    *regexp.Regexp
+	cfg                *config.FileHandlerConfig
+	file               *os.File
+	filename           string
+	filePath           string
+	maxSize            int64
+	backupCount        int
+	intervalStep       int64
+	interval           int64
+	suffixFmt          string
+	reMatch            string
+	rolloverAt         int64
+	rolloverTimeSuffix string
+	reCompile          *regexp.Regexp
 }
 
 func NewTimeAndSizeRotator(cfg *config.FileHandlerConfig) (*TimeAndSizeRotator, error) {
@@ -312,7 +320,7 @@ func NewTimeAndSizeRotator(cfg *config.FileHandlerConfig) (*TimeAndSizeRotator, 
 		backupCount:  cfg.BackupCount,
 		intervalStep: cfg.IntervalStep,
 		//interval:     cfg.Interval,
-		suffixFmt: cfg.SuffixFmt,
+		suffixFmt: cfg.TimeSuffixFmt,
 		reMatch:   cfg.ReMatch,
 		reCompile: nil,
 	}
@@ -352,11 +360,8 @@ func (r *TimeAndSizeRotator) init() error {
 	if err != nil {
 		panic(err)
 	}
-	suffix := time.Now().Format(r.suffixFmt)
-	if r.filename == "" {
-		r.filename = "glog"
-	}
-	r.filePath = filepath.Join(r.cfg.FileDir, strings.Join([]string{r.filename, suffix, "log"}, "."))
+
+	r.filePath = r.getNewFilepath()
 	return nil
 }
 func (r *TimeAndSizeRotator) NeedRollover(msg []byte) (*os.File, bool, error) {
@@ -365,6 +370,13 @@ func (r *TimeAndSizeRotator) NeedRollover(msg []byte) (*os.File, bool, error) {
 		r.file, err = open(r.filePath)
 		if err != nil {
 			return r.file, false, err
+		}
+		modTime, err := getFileModTime(r.file)
+		if err != nil {
+			return r.file, false, err
+		}
+		if modTime.Unix() + r.interval < r.rolloverAt{
+			return r.file, true, nil
 		}
 	}
 	t := time.Now().Unix()
@@ -376,7 +388,7 @@ func (r *TimeAndSizeRotator) NeedRollover(msg []byte) (*os.File, bool, error) {
 		if err != nil {
 			return r.file, false, err
 		} else {
-			if size + int64(len(msg)) >= r.maxSize {
+			if size+int64(len(msg)) >= r.maxSize {
 				return r.file, false, errors.New("maximum file size limit")
 			} else {
 				return r.file, false, nil
@@ -398,8 +410,28 @@ func (r *TimeAndSizeRotator) DoRollover() (*os.File, error) {
 			return nil, err
 		}
 	}
-	curTime := time.Now()
-	suffix := curTime.Format(r.suffixFmt)
+	if !r.cfg.MultiProcessWrite {
+		var parties []string
+		if r.filename != "" {
+			parties = append(parties, r.filename)
+		}
+		parties = append(parties, r.rolloverTimeSuffix)
+		parties = append(parties, r.cfg.FileSuffix)
+		dfn := filepath.Join(r.cfg.FileDir, strings.Join(parties, "."))
+
+		if IsFileExist(dfn) {
+			err = os.Remove(dfn)
+			if err != nil {
+				return nil, err
+			}
+		}
+		if IsFileExist(r.filePath) {
+			err = os.Rename(r.filePath, dfn)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
 	if r.backupCount > 0 {
 		dir := r.cfg.FileDir
 		filename := r.filename
@@ -433,14 +465,28 @@ func (r *TimeAndSizeRotator) DoRollover() (*os.File, error) {
 		}
 	}
 	// next rolloverAt
-	r.rolloverAt = curTime.Unix() + r.interval
+	r.rolloverAt = time.Now().Unix() + r.interval
 
-	r.filePath = filepath.Join(r.cfg.FileDir, strings.Join([]string{r.filename, suffix, "log"}, "."))
+	r.filePath = r.getNewFilepath()
 	r.file, err = open(r.filePath)
 	if err != nil {
 		return nil, err
 	}
 	return r.file, nil
+}
+
+func (r *TimeAndSizeRotator) getNewFilepath() string {
+	var parties []string
+	if r.filename != "" {
+		parties = append(parties, r.filename)
+		//r.filename = "glog"
+	}
+	r.rolloverTimeSuffix = time.Now().Format(r.suffixFmt)
+	if r.cfg.MultiProcessWrite {
+		parties = append(parties, r.rolloverTimeSuffix)
+	}
+	parties = append(parties, r.cfg.FileSuffix)
+	return filepath.Join(r.cfg.FileDir, strings.Join(parties, "."))
 }
 
 func (r *TimeAndSizeRotator) Close() error {
@@ -483,4 +529,12 @@ func removeSuffix(s string, suffix string) string {
 		return s[0 : len(s)-len(suffix)]
 	}
 	return s
+}
+
+func getFileModTime(file *os.File) (time.Time, error) {
+	info, err := file.Stat()
+	if err != nil {
+		return time.Time{}, err
+	}
+	return info.ModTime(), nil
 }

@@ -110,9 +110,9 @@ func SetFileRematch(pattern string, isSetReport bool) OptionFunc {
 func SetFileTimeFmtSuffix(timeFmt string, isSetReport bool) OptionFunc {
 	return func(cfg *Config) error {
 		if isSetReport {
-			cfg.Handler.ReportHandlerConfig.File.SuffixFmt = timeFmt
+			cfg.Handler.ReportHandlerConfig.File.TimeSuffixFmt = timeFmt
 		} else {
-			cfg.Handler.LogHandlerConfig.File.SuffixFmt = timeFmt
+			cfg.Handler.LogHandlerConfig.File.TimeSuffixFmt = timeFmt
 		}
 		return nil
 	}

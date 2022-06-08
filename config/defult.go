@@ -44,27 +44,29 @@ const (
 
 func NewDefaultConfig() *Config {
 	return &Config{
-		LoggerName:           "UNKNOWN",
-		LoggerLevel:          levels.InfoLevel,
+		LoggerName:      "UNKNOWN",
+		LoggerLevel:     levels.InfoLevel,
 		LoggerCacheSize: 100000,
 
 		EnableReport:    false,
 		ReportLevel:     levels.ErrorLevel,
 		ReportCacheSize: 10000,
-		IsRecordCaller: true,
+		IsRecordCaller:  true,
 		Handler: HandlerConfig{
 			LogHandlerConfig: BaseHandlerConfig{
 				HandlerType: HandlerTypeFile,
 				File: FileHandlerConfig{
-					Type:         FileRotatorTypeTimeAndSize,
-					FileDir:      defaultLogDir,
-					FileName:     defaultLogName,
-					MaxFileSize:  defaultMaxFileSize * 4,
-					When:         FileRotatorWhenHour,
-					BackupCount:  50,
-					IntervalStep: 1,
-					SuffixFmt:    "2006010215",
-					ReMatch:      "^\\d{10}(\\.\\w+)?$",
+					Type:              FileRotatorTypeTimeAndSize,
+					FileDir:           defaultLogDir,
+					FileName:          defaultLogName,
+					MaxFileSize:       defaultMaxFileSize * 4,
+					When:              FileRotatorWhenHour,
+					BackupCount:       50,
+					IntervalStep:      1,
+					TimeSuffixFmt:     "2006010215",
+					ReMatch:           "^\\d{10}(\\.\\w+)?$",
+					FileSuffix:        "log",
+					MultiProcessWrite: false,
 
 					ErrCallback: func(err error) {
 						println("===> logger err: ", err)
@@ -86,9 +88,10 @@ func NewDefaultConfig() *Config {
 				File: FileHandlerConfig{
 					Type:        FileRotatorTypeSize,
 					FileDir:     defaultReportLogDir,
-					FileName:    "report",
+					FileName:    defaultLogName,
 					MaxFileSize: defaultMaxFileSize,
 					BackupCount: 50,
+					FileSuffix:  "report",
 
 					ErrCallback: func(err error) {
 						println("===> report err: ", err)

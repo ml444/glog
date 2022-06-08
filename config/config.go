@@ -45,7 +45,6 @@ type BaseHandlerConfig struct {
 
 	Formatter FormatterConfig
 	Filter    FilterConfig
-
 }
 
 type FileHandlerConfig struct {
@@ -56,11 +55,13 @@ type FileHandlerConfig struct {
 	BackupCount int
 
 	// TimeRotator and TimeAndSizeRotator
-	When         uint8
-	IntervalStep int64
-	SuffixFmt    string
-	ReMatch      string
+	When          uint8
+	IntervalStep  int64
+	TimeSuffixFmt string
+	ReMatch       string
+	FileSuffix    string
 
+	MultiProcessWrite bool
 
 	ErrCallback func(err error)
 }
