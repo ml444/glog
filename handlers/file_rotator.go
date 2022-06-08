@@ -34,19 +34,17 @@ func GetRotator4Config(cfg *config.FileHandlerConfig) (IRotator, error) {
 }
 
 type SizeRotator struct {
-	file        *os.File
-	cfg         *config.FileHandlerConfig
-	//fileDir     string
-	filePath    string
-	maxSize     int64
-	//backupCount int
+	file     *os.File
+	cfg      *config.FileHandlerConfig
+	filePath string
+	maxSize  int64
 }
 
 func NewSizeRotator(cfg *config.FileHandlerConfig) (*SizeRotator, error) {
 
 	r := SizeRotator{
-		cfg: cfg,
-		maxSize:     cfg.MaxFileSize,
+		cfg:     cfg,
+		maxSize: cfg.MaxFileSize,
 	}
 	err := r.init()
 	if err != nil {
@@ -146,31 +144,14 @@ func (r *SizeRotator) Close() error {
 type TimeRotator struct {
 	cfg      *config.FileHandlerConfig
 	file     *os.File
-	filename string
 	filePath string
-	//when         uint8
-	intervalStep int64
-	interval     int64
-	suffixFmt    string
-	reMatch      string
-	backupCount  int
-	rolloverAt   int64
-	reCompile    *regexp.Regexp
+	interval int64
+	rolloverAt int64
+	reCompile  *regexp.Regexp
 }
 
 func NewTimeRotator(cfg *config.FileHandlerConfig) (*TimeRotator, error) {
-	r := &TimeRotator{
-		cfg:      cfg,
-		filePath: "",
-		//when:         0,
-		intervalStep: 0,
-		interval:     0,
-		suffixFmt:    "",
-		reMatch:      "",
-		backupCount:  0,
-		rolloverAt:   0,
-		reCompile:    nil,
-	}
+	r := &TimeRotator{cfg: cfg}
 	err := r.init()
 	if err != nil {
 		return nil, err
@@ -185,40 +166,39 @@ func (r *TimeRotator) init() error {
 	switch r.cfg.When {
 	case config.FileRotatorWhenSecond:
 		r.interval = 1 // one second
-		r.suffixFmt = "2006-01-02_15-04-05"
-		r.reMatch = "^\\d{4}-\\d{2}-\\d{2}_\\d{2}-\\d{2}-\\d{2}(\\.\\w+)?$"
 	case config.FileRotatorWhenMinute:
 		r.interval = 60 // one minute
-		r.suffixFmt = "2006-01-02_15-04"
-		r.reMatch = "^\\d{4}-\\d{2}-\\d{2}_\\d{2}-\\d{2}(\\.\\w+)?$"
+		r.rolloverAt = time.Now().Truncate(time.Minute).Unix() + r.interval
 	case config.FileRotatorWhenHour:
 		r.interval = 60 * 60
-		r.suffixFmt = "2006-01-02_15"
-		r.reMatch = "^\\d{4}-\\d{2}-\\d{2}_\\d{2}(\\.\\w+)?$"
+		r.rolloverAt = time.Now().Truncate(time.Hour).Unix() + r.interval
 	case config.FileRotatorWhenDay:
 		r.interval = 60 * 60 * 24
-		r.suffixFmt = "2006-01-02"
-		r.reMatch = "^\\d{4}-\\d{2}-\\d{2}(\\.\\w+)?$"
+		r.rolloverAt = time.Now().Truncate(time.Hour*24).Unix() + r.interval
 	default:
 		panic(fmt.Sprintf("Invalid rollover interval specified: %d", r.cfg.When))
 	}
-	reCompile, err := regexp.Compile(r.reMatch)
-	if err != nil {
-		panic(err)
-	}
-	r.reCompile = reCompile
-	if r.intervalStep != 0 {
-		r.interval = r.interval * r.intervalStep
+
+	r.reCompile = regexp.MustCompile(r.cfg.ReMatch)
+	if r.cfg.IntervalStep != 0 {
+		r.interval = r.interval * r.cfg.IntervalStep
 	}
 
-	err = mkdir(r.cfg.FileDir)
+	err := mkdir(r.cfg.FileDir)
 	if err != nil {
 		panic(err)
 	}
 
-	r.cfg.FileName = removeSuffix(r.cfg.FileName, ".log")
-	r.filePath = filepath.Join(r.cfg.FileDir, r.cfg.FileName)
+	r.filePath = r.getFilepath()
 	return nil
+}
+func (r *TimeRotator) getFilepath() string {
+	var parties []string
+	if r.cfg.FileName != "" {
+		parties = append(parties, r.cfg.FileName)
+	}
+	parties = append(parties, r.cfg.FileSuffix)
+	return filepath.Join(r.cfg.FileDir, strings.Join(parties, "."))
 }
 
 func (r *TimeRotator) NeedRollover(_ []byte) (*os.File, bool, error) {
@@ -235,7 +215,7 @@ func (r *TimeRotator) DoRollover() (*os.File, error) {
 		_ = r.file.Close()
 	}
 	curTime := time.Now()
-	suffixTime := curTime.Format(r.suffixFmt)
+	suffixTime := curTime.Format(r.cfg.TimeSuffixFmt)
 	dfn := fmt.Sprintf("%s.%s", r.filePath, suffixTime)
 	if IsFileExist(dfn) {
 		err := os.Remove(dfn)
@@ -249,7 +229,7 @@ func (r *TimeRotator) DoRollover() (*os.File, error) {
 			return nil, err
 		}
 	}
-	if r.backupCount > 0 {
+	if backupCount := r.cfg.BackupCount; backupCount > 0 {
 		dir, filename := filepath.Split(r.filePath)
 		var delFileList []string
 		_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
@@ -266,9 +246,9 @@ func (r *TimeRotator) DoRollover() (*os.File, error) {
 			}
 			return nil
 		})
-		if len(delFileList) > r.backupCount {
+		if delLen := len(delFileList); delLen > backupCount {
 			sort.Strings(delFileList)
-			delFileList = delFileList[:len(delFileList)-r.backupCount]
+			delFileList = delFileList[:delLen-backupCount]
 		}
 		for _, filePath := range delFileList {
 			err := os.Remove(filePath)
@@ -375,7 +355,7 @@ func (r *TimeAndSizeRotator) NeedRollover(msg []byte) (*os.File, bool, error) {
 		if err != nil {
 			return r.file, false, err
 		}
-		if modTime.Unix() + r.interval < r.rolloverAt{
+		if modTime.Unix()+r.interval < r.rolloverAt {
 			return r.file, true, nil
 		}
 	}
@@ -523,12 +503,6 @@ func mkdir(dir string) error {
 		}
 	}
 	return nil
-}
-func removeSuffix(s string, suffix string) string {
-	if strings.HasSuffix(s, suffix) {
-		return s[0 : len(s)-len(suffix)]
-	}
-	return s
 }
 
 func getFileModTime(file *os.File) (time.Time, error) {
