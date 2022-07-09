@@ -8,8 +8,6 @@ import (
 var logger ILogger
 var Config *config.Config
 
-
-
 func InitLog(opts ...config.OptionFunc) error {
 	if logger != nil {
 		return errors.New("logger has init")
@@ -29,6 +27,10 @@ func InitLog(opts ...config.OptionFunc) error {
 	}
 	logger = l
 	return nil
+}
+
+func SetLogger(g ILogger) {
+	logger = g
 }
 
 func Debug(args ...interface{}) { logger.Debug(args...) }
