@@ -35,15 +35,7 @@ func GetNewHandler(handlerCfg config.BaseHandlerConfig) (IHandler, error) {
 type BaseHandler struct {
 	formatter formatters.IFormatter
 	filter    filters.IFilter
-	//lock      sync.Mutex
 }
-
-//func (h *BaseHandler) Acquire() {
-//	h.lock.Lock()
-//}
-//func (h *BaseHandler) Release() {
-//	h.lock.Unlock()
-//}
 
 func (h *BaseHandler) Format(record *message.Entry) ([]byte, error) {
 	if h.formatter == nil {
@@ -64,13 +56,10 @@ func (h *BaseHandler) Handle(record *message.Entry) error {
 		return err
 	}
 
-	//h.Acquire()
 	err = h.Emit(msgByte)
-	//h.Release()
 	return err
 }
 
 func (h *BaseHandler) Emit(msg []byte) error {
-	fmt.Println("BaseHandler: ", string(msg))
 	return nil
 }

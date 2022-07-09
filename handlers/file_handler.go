@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"errors"
-	"fmt"
 	"github.com/ml444/glog/config"
 	"github.com/ml444/glog/filters"
 	"github.com/ml444/glog/formatters"
@@ -90,13 +89,11 @@ func (h *FileHandler) flushWorker() {
 	for {
 		select {
 		case buf := <-h.bufChan:
-			//fmt.Println("111", string(buf))
 			var bb []byte
 			var total int
 			for {
 				select {
 				case more := <-h.bufChan:
-					//fmt.Println("222", string(more))
 					if len(bb) == 0 {
 						bb = append(bb, buf...)
 						total += len(buf)
@@ -113,17 +110,11 @@ func (h *FileHandler) flushWorker() {
 		OUT:
 			if len(bb) == 0 {
 				err := h.realWrite(buf)
-				if err != nil {
-					fmt.Println("==>",err)
-				}
 				if err != nil && h.ErrorCallback != nil {
 					h.ErrorCallback(err)
 				}
 			} else {
 				err := h.realWrite(bb)
-				if err != nil {
-					fmt.Println("==>",err)
-				}
 				if err != nil && h.ErrorCallback != nil {
 					h.ErrorCallback(err)
 				}
