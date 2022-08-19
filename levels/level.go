@@ -7,43 +7,30 @@ import (
 
 type LogLevel int8
 
-
-
 const (
 	DebugLevel LogLevel = iota + 1
+	PrintLevel
 	InfoLevel
 	WarnLevel
 	ErrorLevel
-	DPanicLevel
 	PanicLevel
 	FatalLevel
 	ReportLevel
 )
-
-// A constant exposing all logging levels
-var AllLevels = []LogLevel{
-	FatalLevel,
-	PanicLevel,
-	DPanicLevel,
-	ErrorLevel,
-	WarnLevel,
-	InfoLevel,
-	DebugLevel,
-}
 
 // Convert the Level to a string. E.g. PanicLevel becomes "panic".
 func (lvl LogLevel) String() string {
 	switch lvl {
 	case DebugLevel:
 		return "debug"
+	case PrintLevel:
+		return "print"
 	case InfoLevel:
 		return "info"
 	case WarnLevel:
 		return "warn"
 	case ErrorLevel:
 		return "error"
-	case DPanicLevel:
-		return "dpanic"
 	case PanicLevel:
 		return "panic"
 	case FatalLevel:
@@ -67,6 +54,8 @@ func ParseLevel(lvl string) (LogLevel, error) {
 		return WarnLevel, nil
 	case "info":
 		return InfoLevel, nil
+	case "print":
+		return PrintLevel, nil
 	case "debug":
 		return DebugLevel, nil
 	}
@@ -74,7 +63,6 @@ func ParseLevel(lvl string) (LogLevel, error) {
 	var l LogLevel
 	return l, fmt.Errorf("not a valid log Level: %q", lvl)
 }
-
 
 func (lvl LogLevel) ShortString() string {
 	switch lvl {
@@ -86,8 +74,8 @@ func (lvl LogLevel) ShortString() string {
 		return "WAR "
 	case ErrorLevel:
 		return "ERR "
-	case DPanicLevel:
-		return "PAN "
+	case PrintLevel:
+		return "PRT "
 	case PanicLevel:
 		return "PAN "
 	case FatalLevel:
@@ -96,6 +84,7 @@ func (lvl LogLevel) ShortString() string {
 		return fmt.Sprintf("L(%d) ", lvl)
 	}
 }
+
 //func (lvl LogLevel) Color() string {
 //	switch lvl {
 //	case DebugLevel, InfoLevel, ImportantLevel:

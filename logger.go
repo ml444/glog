@@ -59,6 +59,7 @@ type Logger struct {
 	// Function to exit the application, defaults to `os.Exit()`
 	ExitFunc       ExitFunc
 	ExitOnFatal    bool
+	ExitOnPanic    bool
 	IsRecordCaller bool
 
 	isStop bool
@@ -75,7 +76,6 @@ func NewLogger(cfg *config.Config) (*Logger, error) {
 	l := Logger{
 		Name:           cfg.LoggerName,
 		Level:          cfg.LoggerLevel,
-		ExitOnFatal:    true,
 		ExitFunc:       os.Exit,
 		engine:         engines.NewChanEngine(cfg),
 		IsRecordCaller: cfg.IsRecordCaller,
@@ -139,20 +139,7 @@ func (l *Logger) Log(lvl levels.LogLevel, args ...interface{}) {
 	}
 	msg := fmt.Sprint(args...)
 	l.send(lvl, msg)
-
-	if lvl == levels.FatalLevel || lvl == levels.PanicLevel || lvl == levels.DPanicLevel {
-		l.PrintStack(4)
-	}
-	if l.ExitOnFatal && lvl == levels.FatalLevel {
-		err := l.Stop()
-		if err != nil {
-			println(err)
-		}
-		l.ExitFunc(-1)
-	}
-	if lvl == levels.PanicLevel {
-		panic(msg)
-	}
+	l.AfterLog(lvl)
 }
 
 func (l *Logger) Logf(lvl levels.LogLevel, template string, args ...interface{}) {
@@ -167,8 +154,11 @@ func (l *Logger) Logf(lvl levels.LogLevel, template string, args ...interface{})
 		msg = fmt.Sprintf(template, args...)
 	}
 	l.send(lvl, msg)
+	l.AfterLog(lvl)
+}
 
-	if lvl == levels.FatalLevel || lvl == levels.PanicLevel || lvl == levels.DPanicLevel {
+func (l *Logger) AfterLog(lvl levels.LogLevel) {
+	if lvl == levels.FatalLevel || lvl == levels.PanicLevel {
 		l.PrintStack(4)
 	}
 	if l.ExitOnFatal && lvl == levels.FatalLevel {
@@ -178,8 +168,12 @@ func (l *Logger) Logf(lvl levels.LogLevel, template string, args ...interface{})
 		}
 		l.ExitFunc(-1)
 	}
-	if lvl == levels.PanicLevel {
-		panic(msg)
+	if l.ExitOnPanic && lvl == levels.PanicLevel {
+		err := l.Stop()
+		if err != nil {
+			println(err)
+		}
+		l.ExitFunc(-1)
 	}
 }
 
@@ -187,7 +181,7 @@ func (l *Logger) Debug(args ...interface{}) { l.Log(levels.DebugLevel, args...) 
 func (l *Logger) Info(args ...interface{})  { l.Log(levels.InfoLevel, args...) }
 func (l *Logger) Warn(args ...interface{})  { l.Log(levels.WarnLevel, args...) }
 func (l *Logger) Error(args ...interface{}) { l.Log(levels.ErrorLevel, args...) }
-func (l *Logger) Print(args ...interface{}) { l.Log(levels.InfoLevel, args...) }
+func (l *Logger) Print(args ...interface{}) { l.Log(levels.PrintLevel, args...) }
 func (l *Logger) Fatal(args ...interface{}) { l.Log(levels.FatalLevel, args...) }
 func (l *Logger) Panic(args ...interface{}) { l.Log(levels.FatalLevel, args...) }
 
@@ -204,10 +198,10 @@ func (l *Logger) Errorf(template string, args ...interface{}) {
 	l.Logf(levels.ErrorLevel, template, args...)
 }
 func (l *Logger) Printf(template string, args ...interface{}) {
-	l.Logf(levels.InfoLevel, template, args...)
+	l.Logf(levels.PrintLevel, template, args...)
 }
 func (l *Logger) Panicf(template string, args ...interface{}) {
-	l.Logf(levels.DPanicLevel, template, args...)
+	l.Logf(levels.PanicLevel, template, args...)
 }
 func (l *Logger) Fatalf(template string, args ...interface{}) {
 	l.Logf(levels.FatalLevel, template, args...)

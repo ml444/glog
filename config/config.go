@@ -11,26 +11,12 @@ type Config struct {
 	ReportLevel     levels.LogLevel
 	ReportCacheSize int
 
+	ExitOnFatal    bool
+	ExitOnPanic    bool
 	IsRecordCaller bool
 
-	//Logger  LoggerConfig  `json:"logger"`
-	//Engine  EngineConfig  `json:"engine"`
 	Handler HandlerConfig `json:"handler"`
 }
-
-//type LoggerConfig struct {
-//	Name           string
-//	Level          levels.LogLevel
-//	IsRecordCaller bool
-//}
-//
-//type EngineConfig struct {
-//	LogCacheSize int
-//
-//	EnableReport    bool
-//	ReportCacheSize int
-//	ReportLevel     levels.LogLevel
-//}
 
 type HandlerConfig struct {
 	LogHandlerConfig    BaseHandlerConfig
