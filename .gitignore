@@ -16,5 +16,4 @@
 
 .idea/
 
-*_test.go
 go.sum
