@@ -2,6 +2,8 @@ package config
 
 import (
 	"github.com/ml444/glog/levels"
+	"os"
+	"strings"
 	"time"
 )
 
@@ -33,18 +35,31 @@ const (
 )
 
 const (
-	DefaultTimestampFormat = time.RFC3339
-
-	defaultMaxFileSize int64 = 1024 * 1024 * 1024
-
-	defaultLogDir       string = "."
-	defaultLogName      string = ""
-	defaultReportLogDir string = "."
+	DefaultTimestampFormat       = time.RFC3339
+	defaultMaxFileSize     int64 = 1024 * 1024 * 1024
 )
+
+var (
+	defaultLogDir       string
+	defaultReportLogDir string
+	defaultLogName      string
+)
+
+func init() {
+	curDir, err := os.Getwd()
+	if err != nil {
+		println(err.Error())
+	}
+	defaultLogDir = curDir
+	defaultReportLogDir = curDir
+
+	l := strings.Split(curDir, string(os.PathSeparator))
+	defaultLogName = l[len(l)-1]
+}
 
 func NewDefaultConfig() *Config {
 	return &Config{
-		LoggerName:      "UNKNOWN",
+		LoggerName:      defaultLogName,
 		LoggerLevel:     levels.InfoLevel,
 		LoggerCacheSize: 100000,
 

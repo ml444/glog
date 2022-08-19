@@ -8,10 +8,17 @@ import (
 var logger ILogger
 var Config *config.Config
 
-func InitLog(opts ...config.OptionFunc) error {
+func init() {
 	if logger != nil {
-		return errors.New("logger has init")
+		return
 	}
+	if Config == nil {
+		Config = config.NewDefaultConfig()
+	}
+	logger, _ = NewLogger(Config)
+}
+
+func InitLog(opts ...config.OptionFunc) error {
 	if Config == nil {
 		Config = config.NewDefaultConfig()
 	}
