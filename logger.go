@@ -2,13 +2,14 @@ package log
 
 import (
 	"fmt"
+	"runtime"
+	"time"
+
 	"github.com/ml444/glog/config"
 	"github.com/ml444/glog/engines"
 	"github.com/ml444/glog/message"
 	"github.com/ml444/glog/util"
 	"github.com/petermattis/goid"
-	"runtime"
-	"time"
 
 	"os"
 
@@ -54,7 +55,7 @@ type Logger struct {
 	Level  levels.LogLevel
 	engine engines.IEngine
 
-	TradeIdFunc FieldFunc
+	TradeIDFunc FieldFunc
 
 	// Function to exit the application, defaults to `os.Exit()`
 	ExitFunc       ExitFunc
@@ -100,20 +101,20 @@ func (l *Logger) send(level levels.LogLevel, msg interface{}) {
 	if l.isStop {
 		return
 	}
-	routineId := goid.Get()
+	routineID := goid.Get()
 	entry := &message.Entry{
 		LogName:   l.Name,
 		HostName:  hostName,
 		Ip:        ip,
 		Pid:       pid,
-		RoutineId: routineId,
+		RoutineId: routineID,
 		Message:   msg,
 		Time:      time.Now(),
 		Level:     level,
 		//ErrMsg:    "",
 	}
-	if l.TradeIdFunc != nil {
-		entry.TradeId = l.TradeIdFunc()
+	if l.TradeIDFunc != nil {
+		entry.TradeId = l.TradeIDFunc()
 	}
 
 	if l.IsRecordCaller {
