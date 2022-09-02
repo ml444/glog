@@ -1,14 +1,16 @@
+//go:build !windows && !plan9
 // +build !windows,!plan9
 
 package handlers
 
 import (
+	"log/syslog"
+
 	"github.com/ml444/glog/config"
 	"github.com/ml444/glog/filters"
 	"github.com/ml444/glog/formatters"
 	"github.com/ml444/glog/levels"
 	"github.com/ml444/glog/message"
-	"log/syslog"
 )
 
 type SyslogHandler struct {
