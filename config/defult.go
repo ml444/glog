@@ -1,16 +1,18 @@
 package config
 
 import (
-	"github.com/ml444/glog/levels"
 	"os"
 	"strings"
 	"time"
+
+	"github.com/ml444/glog/levels"
 )
 
 const (
-	HandlerTypeFile   = 1
-	HandlerTypeStream = 2
-	HandlerTypeSyslog = 3
+	HandlerTypeDefault = 0
+	HandlerTypeFile    = 1
+	HandlerTypeStream  = 2
+	HandlerTypeSyslog  = 3
 
 	FormatterTypeText = 1
 	FormatterTypeJson = 2
@@ -69,7 +71,7 @@ func NewDefaultConfig() *Config {
 		IsRecordCaller:  true,
 		Handler: HandlerConfig{
 			LogHandlerConfig: BaseHandlerConfig{
-				HandlerType: HandlerTypeFile,
+				HandlerType: HandlerTypeDefault,
 				File: FileHandlerConfig{
 					Type:              FileRotatorTypeTimeAndSize,
 					FileDir:           defaultLogDir,

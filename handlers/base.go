@@ -2,12 +2,10 @@ package handlers
 
 import (
 	"errors"
-	"fmt"
-	"github.com/ml444/glog/config"
-	"github.com/ml444/glog/filters"
-	"github.com/ml444/glog/formatters"
-	"github.com/ml444/glog/message"
 	"runtime"
+
+	"github.com/ml444/glog/config"
+	"github.com/ml444/glog/message"
 )
 
 type IHandler interface {
@@ -28,38 +26,6 @@ func GetNewHandler(handlerCfg config.BaseHandlerConfig) (IHandler, error) {
 		}
 		return NewSyslogHandler(&handlerCfg)
 	default:
-		return NewFileHandler(&handlerCfg)
+		return NewDefaultHandler(&handlerCfg)
 	}
-}
-
-type BaseHandler struct {
-	formatter formatters.IFormatter
-	filter    filters.IFilter
-}
-
-func (h *BaseHandler) Format(record *message.Entry) ([]byte, error) {
-	if h.formatter == nil {
-		return h.formatter.Format(record)
-	}
-	return nil, nil
-}
-
-func (h *BaseHandler) Handle(record *message.Entry) error {
-	if h.filter != nil {
-		if ok := h.filter.Filter(record); !ok {
-			return errors.New(fmt.Sprintf("Filter out this msg: %v", record))
-		}
-	}
-
-	msgByte, err := h.Format(record)
-	if err != nil {
-		return err
-	}
-
-	err = h.Emit(msgByte)
-	return err
-}
-
-func (h *BaseHandler) Emit(msg []byte) error {
-	return nil
 }
