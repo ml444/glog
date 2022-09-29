@@ -44,9 +44,16 @@ var ip string
 var hostName string
 
 func init() {
+	var err error
 	pid = os.Getpid()
-	hostName, _ = os.Hostname()
-	ip, _ = util.GetFirstLocalIp()
+	hostName, err = os.Hostname()
+	if err != nil {
+		println(err)
+	}
+	ip, err = util.GetFirstLocalIp()
+	if err != nil {
+		println(err)
+	}
 }
 
 type Logger struct {
