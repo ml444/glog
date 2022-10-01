@@ -1,9 +1,6 @@
 package handlers
 
 import (
-	"errors"
-	"runtime"
-
 	"github.com/ml444/glog/config"
 	"github.com/ml444/glog/message"
 )
@@ -21,9 +18,6 @@ func GetNewHandler(handlerCfg config.BaseHandlerConfig) (IHandler, error) {
 	case config.HandlerTypeStream:
 		return NewStreamHandler(&handlerCfg)
 	case config.HandlerTypeSyslog:
-		if runtime.GOOS == "windows" {
-			return nil, errors.New("windows doesn't support syslog temporarily")
-		}
 		return NewSyslogHandler(&handlerCfg)
 	default:
 		return NewDefaultHandler(&handlerCfg)
