@@ -8,7 +8,6 @@ import (
 )
 
 type ChanEngine struct {
-	cfg          *config.Config
 	msgHandlers  []handlers.IHandler
 	msgChan      chan *message.Entry
 	reportChan   chan *message.Entry
@@ -19,16 +18,22 @@ type ChanEngine struct {
 	OnError func(msg *message.Entry, err error)
 }
 
-func NewChanEngine(cfg *config.Config) *ChanEngine {
+func NewChanEngine() *ChanEngine {
 	return &ChanEngine{
-		cfg:          cfg,
-		enableReport: cfg.EnableReport,
-		reportLevel:  cfg.ReportLevel,
+		enableReport: config.GlobalConfig.EnableReport,
+		reportLevel:  config.GlobalConfig.ReportLevel,
 	}
 }
 
+func (e *ChanEngine) Init() error {
+	e.msgChan = make(chan *message.Entry, config.GlobalConfig.LoggerCacheSize)
+	e.reportChan = make(chan *message.Entry, config.GlobalConfig.ReportCacheSize)
+	e.doneChan = make(chan bool, 1)
+	return nil
+}
+
 func (e *ChanEngine) Start() error {
-	handler, err := handlers.GetNewHandler(e.cfg.Handler.LogHandlerConfig)
+	handler, err := handlers.GetNewHandler(config.GlobalConfig.Handler.LogHandlerConfig)
 	if err != nil {
 		e.doneChan <- true
 		return err
@@ -53,7 +58,7 @@ func (e *ChanEngine) Start() error {
 	}()
 	if e.enableReport {
 		var reportHandler handlers.IHandler
-		reportHandler, err = handlers.GetNewHandler(e.cfg.Handler.ReportHandlerConfig)
+		reportHandler, err = handlers.GetNewHandler(config.GlobalConfig.Handler.ReportHandlerConfig)
 		if err != nil {
 			e.doneChan <- true
 			return err
@@ -78,12 +83,6 @@ func (e *ChanEngine) Start() error {
 		}()
 	}
 	return nil
-}
-func (e *ChanEngine) Init() error {
-	e.msgChan = make(chan *message.Entry, e.cfg.LoggerCacheSize)
-	e.reportChan = make(chan *message.Entry, e.cfg.ReportCacheSize)
-	e.doneChan = make(chan bool, 1)
-	return e.Start()
 }
 
 func (e *ChanEngine) Send(entry *message.Entry) {

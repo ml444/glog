@@ -82,10 +82,11 @@ func NewLogger(cfg *config.Config) (*Logger, error) {
 		cfg = config.NewDefaultConfig()
 	}
 	l := Logger{
-		Name:           cfg.LoggerName,
-		Level:          cfg.LoggerLevel,
-		ExitFunc:       os.Exit,
-		engine:         engines.NewChanEngine(cfg),
+		Name:     cfg.LoggerName,
+		Level:    cfg.LoggerLevel,
+		ExitFunc: os.Exit,
+		//engine:         engines.NewChanEngine(),
+		engine:         engines.NewRingBufferEngine(),
 		IsRecordCaller: cfg.IsRecordCaller,
 	}
 	err := l.init()
@@ -95,8 +96,16 @@ func NewLogger(cfg *config.Config) (*Logger, error) {
 	return &l, nil
 }
 
-func (l *Logger) init() error {
-	return l.engine.Init()
+func (l *Logger) init() (err error) {
+	err = l.engine.Init()
+	if err != nil {
+		return err
+	}
+	err = l.engine.Start()
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (l *Logger) Stop() error {
@@ -128,7 +137,6 @@ func (l *Logger) send(level levels.LogLevel, msg interface{}) {
 		entry.Caller = message.GetCaller()
 	}
 	l.engine.Send(entry)
-
 }
 
 func (l *Logger) IsLevelEnabled(lvl levels.LogLevel) bool {

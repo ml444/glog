@@ -1,6 +1,9 @@
 package config
 
-import "github.com/ml444/glog/levels"
+import (
+	"github.com/ml444/glog/levels"
+	"github.com/ml444/glog/message"
+)
 
 type Config struct {
 	LoggerName      string
@@ -16,6 +19,8 @@ type Config struct {
 	IsRecordCaller bool
 
 	Handler HandlerConfig `json:"handler"`
+
+	OnError func(msg *message.Entry, err error)
 }
 
 type HandlerConfig struct {

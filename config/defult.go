@@ -63,7 +63,7 @@ func NewDefaultConfig() *Config {
 	return &Config{
 		LoggerName:      defaultLogName,
 		LoggerLevel:     levels.InfoLevel,
-		LoggerCacheSize: 100000,
+		LoggerCacheSize: 1024 * 64,
 
 		EnableReport:    false,
 		ReportLevel:     levels.ErrorLevel,
@@ -123,3 +123,5 @@ func NewDefaultConfig() *Config {
 		},
 	}
 }
+
+var GlobalConfig = NewDefaultConfig()

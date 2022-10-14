@@ -6,7 +6,7 @@ import (
 )
 
 var logger ILogger
-var Config *config.Config
+var Config *config.Config = config.GlobalConfig
 
 func init() {
 	if logger != nil {

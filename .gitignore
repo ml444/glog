@@ -17,3 +17,6 @@
 .idea/
 
 go.sum
+*_test.go
+
+filters/bloom.go
