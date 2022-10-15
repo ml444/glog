@@ -6,22 +6,20 @@ import (
 )
 
 var logger ILogger
-var Config *config.Config = config.GlobalConfig
+var Config = config.GlobalConfig
 
 func init() {
 	if logger != nil {
 		return
 	}
-	if Config == nil {
-		Config = config.NewDefaultConfig()
+	var err error
+	logger, err = NewLogger(Config)
+	if err != nil {
+		println(err)
 	}
-	logger, _ = NewLogger(Config)
 }
 
 func InitLog(opts ...config.OptionFunc) error {
-	if Config == nil {
-		Config = config.NewDefaultConfig()
-	}
 	for _, optionFunc := range opts {
 		err := optionFunc(Config)
 		if err != nil {
@@ -38,6 +36,10 @@ func InitLog(opts ...config.OptionFunc) error {
 
 func SetLogger(g ILogger) {
 	logger = g
+}
+
+func GetLogger() ILogger {
+	return logger
 }
 
 func Debug(args ...interface{}) { logger.Debug(args...) }

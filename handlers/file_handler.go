@@ -12,7 +12,6 @@ import (
 	"time"
 )
 
-
 type FileHandler struct {
 	formatter formatters.IFormatter
 	filter    filters.IFilter
@@ -34,9 +33,9 @@ func NewFileHandler(handlerCfg *config.BaseHandlerConfig) (*FileHandler, error) 
 		return nil, err
 	}
 	h := &FileHandler{
-		formatter:   formatter,
-		filter:      filter,
-		rotator:     rotator,
+		formatter:     formatter,
+		filter:        filter,
+		rotator:       rotator,
 		ErrorCallback: handlerCfg.File.ErrCallback,
 	}
 	h.init()
@@ -49,7 +48,6 @@ func (h *FileHandler) init() {
 	go h.flushWorker()
 	return
 }
-
 
 func (h *FileHandler) realWrite(buf []byte) error {
 	var err error
@@ -83,7 +81,6 @@ func (h *FileHandler) realWrite(buf []byte) error {
 	}
 	return nil
 }
-
 
 func (h *FileHandler) flushWorker() {
 	for {
@@ -172,23 +169,10 @@ func (h *FileHandler) Emit(entry *message.Entry) error {
 	return nil
 }
 
-//func (h *FileHandler) Flush()  {
-//	select {
-//	case h.flushChan <- true: // send
-//	default: // channel full
-//	}
-//	for i := 0; i < 100; i++ {
-//		if h.getWorkerDone() {
-//			break
-//		}
-//		time.Sleep(50 * time.Microsecond)
-//	}
-//
-//}
 func (h *FileHandler) Close() error {
 	select {
 	case h.flushChan <- true: // send
-	//default: // channel full
+		//default: // channel full
 	}
 	for i := 0; i < 100; i++ {
 		if h.getWorkerDone() {
@@ -198,6 +182,3 @@ func (h *FileHandler) Close() error {
 	}
 	return h.rotator.Close()
 }
-
-
-

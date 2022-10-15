@@ -21,7 +21,7 @@ type IRotator interface {
 }
 
 func GetRotator4Config(cfg *config.FileHandlerConfig) (IRotator, error) {
-	switch cfg.Type {
+	switch cfg.RotatorType {
 	case config.FileRotatorTypeSize:
 		return NewSizeRotator(cfg)
 	case config.FileRotatorTypeTime:
@@ -142,10 +142,10 @@ func (r *SizeRotator) Close() error {
 }
 
 type TimeRotator struct {
-	cfg      *config.FileHandlerConfig
-	file     *os.File
-	filePath string
-	interval int64
+	cfg        *config.FileHandlerConfig
+	file       *os.File
+	filePath   string
+	interval   int64
 	rolloverAt int64
 	reCompile  *regexp.Regexp
 }
