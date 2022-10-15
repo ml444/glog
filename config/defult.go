@@ -61,6 +61,8 @@ func init() {
 
 func NewDefaultConfig() *Config {
 	return &Config{
+		EngineType: EngineTypeChannel,
+
 		LoggerName:      defaultLogName,
 		LoggerLevel:     levels.InfoLevel,
 		LoggerCacheSize: 1024 * 64,

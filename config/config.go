@@ -6,17 +6,18 @@ import (
 )
 
 type Config struct {
-	LoggerName      string
-	LoggerLevel     levels.LogLevel
-	LoggerCacheSize int
-
-	EnableReport    bool
-	ReportLevel     levels.LogLevel
-	ReportCacheSize int
-
 	ExitOnFatal    bool
 	ExitOnPanic    bool
 	IsRecordCaller bool
+	EnableReport   bool
+
+	LoggerLevel     levels.LogLevel
+	ReportLevel     levels.LogLevel
+	ReportCacheSize int
+	LoggerCacheSize int
+	EngineType      EngineType
+
+	LoggerName string
 
 	Handler HandlerConfig `json:"handler"`
 

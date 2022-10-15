@@ -24,6 +24,7 @@ type ILogger interface {
 	Info(...interface{})
 	Warn(...interface{})
 	Error(...interface{})
+
 	Print(...interface{})
 	Fatal(...interface{})
 	Panic(...interface{})
@@ -32,6 +33,7 @@ type ILogger interface {
 	Infof(template string, args ...interface{})
 	Warnf(template string, args ...interface{})
 	Errorf(template string, args ...interface{})
+
 	Printf(template string, args ...interface{})
 	Fatalf(template string, args ...interface{})
 	Panicf(template string, args ...interface{})
@@ -82,11 +84,10 @@ func NewLogger(cfg *config.Config) (*Logger, error) {
 		cfg = config.NewDefaultConfig()
 	}
 	l := Logger{
-		Name:     cfg.LoggerName,
-		Level:    cfg.LoggerLevel,
-		ExitFunc: os.Exit,
-		//engine:         engines.NewChanEngine(),
-		engine:         engines.NewRingBufferEngine(),
+		Name:           cfg.LoggerName,
+		Level:          cfg.LoggerLevel,
+		ExitFunc:       os.Exit,
+		engine:         engines.NewEngine(cfg.EngineType),
 		IsRecordCaller: cfg.IsRecordCaller,
 	}
 	err := l.init()

@@ -7,7 +7,7 @@ import (
 	"github.com/ml444/glog/message"
 )
 
-type ChanEngine struct {
+type ChannelEngine struct {
 	msgHandlers  []handlers.IHandler
 	msgChan      chan *message.Entry
 	reportChan   chan *message.Entry
@@ -18,21 +18,21 @@ type ChanEngine struct {
 	OnError func(msg *message.Entry, err error)
 }
 
-func NewChanEngine() *ChanEngine {
-	return &ChanEngine{
+func NewChannelEngine() *ChannelEngine {
+	return &ChannelEngine{
 		enableReport: config.GlobalConfig.EnableReport,
 		reportLevel:  config.GlobalConfig.ReportLevel,
 	}
 }
 
-func (e *ChanEngine) Init() error {
+func (e *ChannelEngine) Init() error {
 	e.msgChan = make(chan *message.Entry, config.GlobalConfig.LoggerCacheSize)
 	e.reportChan = make(chan *message.Entry, config.GlobalConfig.ReportCacheSize)
 	e.doneChan = make(chan bool, 1)
 	return nil
 }
 
-func (e *ChanEngine) Start() error {
+func (e *ChannelEngine) Start() error {
 	handler, err := handlers.GetNewHandler(config.GlobalConfig.Handler.LogHandlerConfig)
 	if err != nil {
 		e.doneChan <- true
@@ -85,7 +85,7 @@ func (e *ChanEngine) Start() error {
 	return nil
 }
 
-func (e *ChanEngine) Send(entry *message.Entry) {
+func (e *ChannelEngine) Send(entry *message.Entry) {
 	select {
 	case e.msgChan <- entry:
 	}
@@ -98,7 +98,7 @@ func (e *ChanEngine) Send(entry *message.Entry) {
 	return
 }
 
-func (e *ChanEngine) Stop() (err error) {
+func (e *ChannelEngine) Stop() (err error) {
 	for _, h := range e.msgHandlers {
 		err = h.Close()
 		if err != nil {
