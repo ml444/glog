@@ -21,7 +21,8 @@ type Config struct {
 
 	Handler HandlerConfig `json:"handler"`
 
-	OnError func(msg *message.Entry, err error)
+	TradeIDFunc func(entry *message.Entry) string
+	OnError     func(msg *message.Entry, err error)
 }
 
 type HandlerConfig struct {

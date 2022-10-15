@@ -75,7 +75,7 @@ type Logger struct {
 	isStop bool
 }
 
-type FieldFunc func(...interface{}) string
+type FieldFunc func(entry *message.Entry) string
 type ExitFunc func(int)
 
 // NewLogger returns a new ILogger
@@ -89,6 +89,7 @@ func NewLogger(cfg *config.Config) (*Logger, error) {
 		ExitFunc:       os.Exit,
 		engine:         engines.NewEngine(cfg.EngineType),
 		IsRecordCaller: cfg.IsRecordCaller,
+		TradeIDFunc:    cfg.TradeIDFunc,
 	}
 	err := l.init()
 	if err != nil {
@@ -131,7 +132,7 @@ func (l *Logger) send(level levels.LogLevel, msg interface{}) {
 		//ErrMsg:    "",
 	}
 	if l.TradeIDFunc != nil {
-		entry.TradeId = l.TradeIDFunc()
+		entry.TradeId = l.TradeIDFunc(entry)
 	}
 
 	if l.IsRecordCaller {

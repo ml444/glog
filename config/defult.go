@@ -70,7 +70,11 @@ func NewDefaultConfig() *Config {
 		EnableReport:    false,
 		ReportLevel:     levels.ErrorLevel,
 		ReportCacheSize: 10000,
-		IsRecordCaller:  true,
+
+		TradeIDFunc: func(entry *message.Entry) string {
+			return "TradeId"
+		},
+		IsRecordCaller: true,
 		Handler: HandlerConfig{
 			LogHandlerConfig: BaseHandlerConfig{
 				HandlerType: HandlerTypeDefault,

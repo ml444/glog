@@ -15,6 +15,7 @@
 %(process)d         进程ID
 %(message)s         记录的消息
 */
+
 package formatters
 
 import (
@@ -136,11 +137,11 @@ func (f *TextFormatter) ColorRender(b *bytes.Buffer, entry *message.Entry) {
 	b.WriteString(util.FormatTime(entry.Time))
 	b.WriteString(fmt.Sprintf(".%04d ", entry.Time.Nanosecond()/100000))
 
-	// if entry.ReqId != "" {
-	//	b.WriteString("<")
-	//	b.WriteString(entry.ReqId)
-	//	b.WriteString("> ")
-	// }
+	if entry.TradeId != "" {
+		b.WriteString("<")
+		b.WriteString(entry.TradeId)
+		b.WriteString("> ")
+	}
 
 	// 日志级别
 	b.WriteString(Color(entry.Level))
@@ -243,7 +244,7 @@ func JoinKV(key string, value interface{}) string {
 	return builder.String()
 }
 
-//  ParseStrTemp
+// ParseStrTemp
 func ParseStrTemp(src string) string {
 	regexpFieldMap := message.ConstructFieldIndexMap()
 	regexpReplaceFunc := func(s string) string {
