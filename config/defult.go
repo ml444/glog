@@ -99,7 +99,7 @@ func NewDefaultConfig() *Config {
 					FormatterType:   FormatterTypeText,
 					TimestampFormat: DefaultTimestampFormat,
 					Text: TextFormatterConfig{
-						Pattern:                "%[LogName]s (%[Pid]d,%[RoutineId]d) %[Level]s %[FileName]s:%[CallerName]s:%[CallerLine]d %[Message]v",
+						Pattern:                "<%[TradeId]s> %[LoggerName]s (%[Pid]d,%[RoutineId]d) %[DateTime]s %[LevelName]s %[Caller]s %[Message]v",
 						EnableQuote:            false,
 						EnableQuoteEmptyFields: false,
 						DisableColors:          false,

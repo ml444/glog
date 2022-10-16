@@ -12,22 +12,18 @@ import (
 type Entry struct {
 	LogName    string
 	FileName   string
+	FilePath   string
 	CallerName string
+	TradeId    string
 	CallerLine int
-	Pid        int
 	RoutineId  int64
-
-	Ip       string
-	HostName string
-	TradeId  string
 
 	Level  levels.LogLevel
 	Time   time.Time
 	Caller *runtime.Frame
 
-	Message  interface{}
-
-	ErrMsg string
+	Message interface{}
+	ErrMsg  string
 }
 
 func (e Entry) IsRecordCaller() bool {
@@ -91,7 +87,7 @@ func GetCaller() *runtime.Frame {
 }
 
 // getPackageName reduces a fully qualified function name to the package name
-// There really ought to be to be a better way...
+// There really ought to be a better way...
 func getPackageName(f string) string {
 	for {
 		lastPeriod := strings.LastIndex(f, ".")
@@ -127,7 +123,7 @@ func ConstructFieldIndexMap() map[string]int {
 		field := dataT.Field(i)
 
 		key := field.Name
-		m[key] = i+1
+		m[key] = i + 1
 	}
 	return m
 }

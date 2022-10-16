@@ -8,7 +8,6 @@ import (
 	"github.com/ml444/glog/config"
 	"github.com/ml444/glog/engines"
 	"github.com/ml444/glog/message"
-	"github.com/ml444/glog/util"
 	"github.com/petermattis/goid"
 
 	"os"
@@ -39,23 +38,6 @@ type ILogger interface {
 	Panicf(template string, args ...interface{})
 
 	Stop() error
-}
-
-var pid = 0
-var ip string
-var hostName string
-
-func init() {
-	var err error
-	pid = os.Getpid()
-	hostName, err = os.Hostname()
-	if err != nil {
-		println(err)
-	}
-	ip, err = util.GetFirstLocalIp()
-	if err != nil {
-		println(err)
-	}
 }
 
 type Logger struct {
@@ -122,9 +104,6 @@ func (l *Logger) send(level levels.LogLevel, msg interface{}) {
 	routineID := goid.Get()
 	entry := &message.Entry{
 		LogName:   l.Name,
-		HostName:  hostName,
-		Ip:        ip,
-		Pid:       pid,
 		RoutineId: routineID,
 		Message:   msg,
 		Time:      time.Now(),

@@ -3,26 +3,31 @@ package formatters
 import (
 	"github.com/ml444/glog/config"
 	"github.com/ml444/glog/message"
+	"github.com/ml444/glog/util"
+	"os"
+	"strconv"
 )
-
-
 
 type IFormatter interface {
 	Format(*message.Entry) ([]byte, error)
 }
 
+var pidStr string
+var localIP string
+var localHostname string
 
-type Fields map[string]interface{}
-type fieldKey string
-// FieldMap allows customization of the key names for default fields.
-type FieldMap map[fieldKey]string
-
-func (f FieldMap) resolve(key fieldKey) string {
-	if k, ok := f[key]; ok {
-		return k
+func init() {
+	var err error
+	pid := os.Getpid()
+	pidStr = strconv.FormatInt(int64(pid), 10)
+	localHostname, err = os.Hostname()
+	if err != nil {
+		println(err)
 	}
-
-	return string(key)
+	localIP, err = util.GetFirstLocalIp()
+	if err != nil {
+		println(err)
+	}
 }
 
 func GetNewFormatter(formatterCfg config.FormatterConfig) IFormatter {
