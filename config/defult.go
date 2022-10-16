@@ -1,44 +1,10 @@
 package config
 
 import (
+	"github.com/ml444/glog/levels"
+	"github.com/ml444/glog/message"
 	"os"
 	"strings"
-	"time"
-
-	"github.com/ml444/glog/levels"
-)
-
-const (
-	HandlerTypeDefault = 0
-	HandlerTypeFile    = 1
-	HandlerTypeStream  = 2
-	HandlerTypeSyslog  = 3
-
-	FormatterTypeText = 1
-	FormatterTypeJson = 2
-	FormatterTypeXml  = 3
-
-	FileRotatorTypeTime        = 1
-	FileRotatorTypeSize        = 2
-	FileRotatorTypeTimeAndSize = 3
-
-	FileRotatorWhenSecond = 1
-	FileRotatorWhenMinute = 2
-	FileRotatorWhenHour   = 3
-	FileRotatorWhenDay    = 4
-
-	FileRotatorSuffixFmt1 = "20060102150405"
-	FileRotatorSuffixFmt2 = "2006-01-02T15-04-05"
-	FileRotatorSuffixFmt3 = "2006-01-02_15-04-05"
-
-	FileRotatorReMatch1 = "^\\d{14}(\\.\\w+)?$"
-	FileRotatorReMatch2 = "^\\d{4}-\\d{2}-\\d{2}T\\d{2}-\\d{2}-\\d{2}(\\.\\w+)?$"
-	FileRotatorReMatch3 = "^\\d{4}-\\d{2}-\\d{2}_\\d{2}-\\d{2}-\\d{2}(\\.\\w+)?$"
-)
-
-const (
-	DefaultTimestampFormat       = time.RFC3339
-	defaultMaxFileSize     int64 = 1024 * 1024 * 1024
 )
 
 var (
@@ -79,7 +45,7 @@ func NewDefaultConfig() *Config {
 			LogHandlerConfig: BaseHandlerConfig{
 				HandlerType: HandlerTypeDefault,
 				File: FileHandlerConfig{
-					Type:              FileRotatorTypeTimeAndSize,
+					RotatorType:       FileRotatorTypeTimeAndSize,
 					FileDir:           defaultLogDir,
 					FileName:          defaultLogName,
 					MaxFileSize:       defaultMaxFileSize * 4,
@@ -109,7 +75,7 @@ func NewDefaultConfig() *Config {
 			ReportHandlerConfig: BaseHandlerConfig{
 				HandlerType: HandlerTypeFile,
 				File: FileHandlerConfig{
-					Type:        FileRotatorTypeSize,
+					RotatorType: FileRotatorTypeSize,
 					FileDir:     defaultReportLogDir,
 					FileName:    defaultLogName,
 					MaxFileSize: defaultMaxFileSize,

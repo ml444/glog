@@ -3,6 +3,65 @@ package config
 import (
 	"github.com/ml444/glog/levels"
 	"github.com/ml444/glog/message"
+	"time"
+)
+
+type EngineType int
+
+const (
+	EngineTypeChannel    EngineType = 1
+	EngineTypeRingBuffer EngineType = 2
+)
+
+type HandlerType int
+
+const (
+	HandlerTypeDefault HandlerType = 0
+	HandlerTypeFile    HandlerType = 1
+	HandlerTypeStream  HandlerType = 2
+	HandlerTypeSyslog  HandlerType = 3
+)
+
+type FormatterType int
+
+const (
+	FormatterTypeText FormatterType = 1
+	FormatterTypeJson FormatterType = 2
+	FormatterTypeXml  FormatterType = 3
+)
+
+type RotatorType int
+
+const (
+	FileRotatorTypeTime        RotatorType = 1
+	FileRotatorTypeSize        RotatorType = 2
+	FileRotatorTypeTimeAndSize RotatorType = 3
+)
+
+type RotatorWhenType int
+
+const (
+	FileRotatorWhenSecond RotatorWhenType = 1
+	FileRotatorWhenMinute RotatorWhenType = 2
+	FileRotatorWhenHour   RotatorWhenType = 3
+	FileRotatorWhenDay    RotatorWhenType = 4
+)
+
+const (
+	FileRotatorSuffixFmt1 = "20060102150405"
+	FileRotatorSuffixFmt2 = "2006-01-02T15-04-05"
+	FileRotatorSuffixFmt3 = "2006-01-02_15-04-05"
+)
+
+const (
+	FileRotatorReMatch1 = "^\\d{14}(\\.\\w+)?$"
+	FileRotatorReMatch2 = "^\\d{4}-\\d{2}-\\d{2}T\\d{2}-\\d{2}-\\d{2}(\\.\\w+)?$"
+	FileRotatorReMatch3 = "^\\d{4}-\\d{2}-\\d{2}_\\d{2}-\\d{2}-\\d{2}(\\.\\w+)?$"
+)
+
+const (
+	DefaultTimestampFormat       = time.RFC3339
+	defaultMaxFileSize     int64 = 1024 * 1024 * 1024
 )
 
 type Config struct {
@@ -31,7 +90,7 @@ type HandlerConfig struct {
 }
 
 type BaseHandlerConfig struct {
-	HandlerType uint8
+	HandlerType HandlerType
 	File        FileHandlerConfig
 	Stream      StreamHandlerConfig
 	Syslog      SyslogHandlerConfig
@@ -41,14 +100,14 @@ type BaseHandlerConfig struct {
 }
 
 type FileHandlerConfig struct {
-	Type        int8
+	RotatorType RotatorType
 	FileDir     string
 	FileName    string
 	MaxFileSize int64
 	BackupCount int
 
 	// TimeRotator and TimeAndSizeRotator
-	When          uint8
+	When          RotatorWhenType
 	IntervalStep  int64
 	TimeSuffixFmt string
 	ReMatch       string
@@ -69,7 +128,7 @@ type SyslogHandlerConfig struct {
 }
 type FormatterConfig struct {
 	TimestampFormat string
-	FormatterType   uint8
+	FormatterType   FormatterType
 	Text            TextFormatterConfig
 	Json            JSONFormatterConfig
 	Xml             XMLFormatterConfig
