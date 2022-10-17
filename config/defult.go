@@ -37,6 +37,7 @@ func NewDefaultConfig() *Config {
 		ReportLevel:     levels.ErrorLevel,
 		ReportCacheSize: 10000,
 
+		ExitFunc: os.Exit,
 		TradeIDFunc: func(entry *message.Entry) string {
 			return "TradeId"
 		},

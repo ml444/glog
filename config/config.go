@@ -66,7 +66,6 @@ const (
 
 type Config struct {
 	ExitOnFatal    bool
-	ExitOnPanic    bool
 	IsRecordCaller bool
 	EnableReport   bool
 
@@ -80,6 +79,7 @@ type Config struct {
 
 	Handler HandlerConfig `json:"handler"`
 
+	ExitFunc    func(code int) // Function to exit the application, defaults to `os.Exit()`
 	TradeIDFunc func(entry *message.Entry) string
 	OnError     func(msg *message.Entry, err error)
 }

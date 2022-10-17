@@ -21,10 +21,7 @@ func init() {
 
 func InitLog(opts ...config.OptionFunc) error {
 	for _, optionFunc := range opts {
-		err := optionFunc(Config)
-		if err != nil {
-			return err
-		}
+		optionFunc(Config)
 	}
 	l, err := NewLogger(Config)
 	if err != nil {
