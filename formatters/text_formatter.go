@@ -105,7 +105,7 @@ func (f *TextFormatter) Format(entry *message.Entry) ([]byte, error) {
 		entry.FileName = c.File
 		//entry.CallerName = c.Function
 		entry.CallerLine = c.Line
-		entry.FilePath, entry.CallerName = util.GetPackageName(c.Function)
+		entry.FilePath, entry.CallerName = util.ParsePackageName(c.Function)
 	}
 	b := &bytes.Buffer{}
 	b.Grow(defaultBufferGrow)

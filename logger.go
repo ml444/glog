@@ -2,6 +2,7 @@ package log
 
 import (
 	"fmt"
+	"github.com/ml444/glog/util"
 	"runtime"
 	"time"
 
@@ -119,7 +120,7 @@ func (l *Logger) send(level levels.LogLevel, msg interface{}) {
 	}
 
 	if l.IsRecordCaller {
-		entry.Caller = message.GetCaller()
+		entry.Caller = util.GetCaller()
 	}
 	l.engine.Send(entry)
 }
