@@ -106,8 +106,7 @@ type FileHandlerConfig struct {
 	MaxFileSize int64
 	BackupCount int
 
-	// TimeRotator and TimeAndSizeRotator
-	When          RotatorWhenType
+	When          RotatorWhenType // used in TimeRotator and TimeAndSizeRotator
 	IntervalStep  int64
 	TimeSuffixFmt string
 	ReMatch       string

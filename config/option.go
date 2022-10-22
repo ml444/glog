@@ -5,7 +5,16 @@ import "github.com/ml444/glog/level"
 type OptionFunc func(config *Config)
 
 func SetLoggerName(name string) OptionFunc {
-	return func(cfg *Config) { cfg.LoggerName = name }
+	return func(cfg *Config) {
+		oldLoggerName := cfg.LoggerName
+		cfg.LoggerName = name
+		if cfg.Handler.LogHandlerConfig.File.FileName == oldLoggerName {
+			cfg.Handler.LogHandlerConfig.File.FileName = name
+		}
+		if cfg.Handler.ReportHandlerConfig.File.FileName == oldLoggerName {
+			cfg.Handler.ReportHandlerConfig.File.FileName = name
+		}
+	}
 }
 
 func SetLevel2Logger(lvl level.LogLevel) OptionFunc {
@@ -15,8 +24,8 @@ func SetLevel2Report(lvl level.LogLevel) OptionFunc {
 	return func(cfg *Config) { cfg.ReportLevel = lvl }
 }
 
-func SetEnableReport(enable bool) OptionFunc {
-	return func(cfg *Config) { cfg.EnableReport = enable }
+func SetEnableReport() OptionFunc {
+	return func(cfg *Config) { cfg.EnableReport = true }
 }
 
 func SetCacheSize2Logger(size int) OptionFunc {
@@ -26,9 +35,21 @@ func SetCacheSize2Report(size int) OptionFunc {
 	return func(cfg *Config) { cfg.ReportCacheSize = size }
 }
 
+func SetHandlerType2Logger(typ HandlerType) OptionFunc {
+	return func(cfg *Config) { cfg.Handler.LogHandlerConfig.HandlerType = typ }
+}
+func SetHandlerType2Report(typ HandlerType) OptionFunc {
+	return func(cfg *Config) { cfg.Handler.ReportHandlerConfig.HandlerType = typ }
+}
+
+// SetFileName2Logger By default, the file name is the same as the logger name,
+// if you need to specify special can be set through this config.
 func SetFileName2Logger(name string) OptionFunc {
 	return func(cfg *Config) { cfg.Handler.LogHandlerConfig.File.FileName = name }
 }
+
+// SetFileName2Report By default, the file name is the same as the logger name,
+// if you need to specify special can be set through this config.
 func SetFileName2Report(name string) OptionFunc {
 	return func(cfg *Config) { cfg.Handler.ReportHandlerConfig.File.FileName = name }
 }
@@ -38,6 +59,13 @@ func SetFileDir2Logger(path string) OptionFunc {
 }
 func SetFileDir2Report(path string) OptionFunc {
 	return func(cfg *Config) { cfg.Handler.ReportHandlerConfig.File.FileDir = path }
+}
+
+func SetFileRotatorType2Logger(typ RotatorType) OptionFunc {
+	return func(cfg *Config) { cfg.Handler.LogHandlerConfig.File.RotatorType = typ }
+}
+func SetFileRotatorType2Report(typ RotatorType) OptionFunc {
+	return func(cfg *Config) { cfg.Handler.ReportHandlerConfig.File.RotatorType = typ }
 }
 
 func SetFileBackupCount2Logger(count int) OptionFunc {
@@ -90,3 +118,5 @@ func SetFileTimeFmtSuffix2Report(timeFmt string) OptionFunc {
 		cfg.Handler.ReportHandlerConfig.File.TimeSuffixFmt = timeFmt
 	}
 }
+
+// TODO: TO be continued

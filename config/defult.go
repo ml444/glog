@@ -2,7 +2,6 @@ package config
 
 import (
 	"github.com/ml444/glog/level"
-	"github.com/ml444/glog/message"
 	"os"
 	"strings"
 )
@@ -35,9 +34,7 @@ func NewDefaultConfig() *Config {
 		ReportCacheSize: 10000,
 
 		ExitFunc: os.Exit,
-		TradeIDFunc: func(entry *message.Entry) string {
-			return "TradeId"
-		},
+		//TradeIDFunc:    nil,
 		IsRecordCaller: true,
 		Handler: HandlerConfig{
 			LogHandlerConfig: BaseHandlerConfig{
@@ -48,7 +45,7 @@ func NewDefaultConfig() *Config {
 					FileName:          defaultLogName,
 					MaxFileSize:       defaultMaxFileSize * 4,
 					When:              FileRotatorWhenHour,
-					BackupCount:       50,
+					BackupCount:       24,
 					IntervalStep:      1,
 					TimeSuffixFmt:     "2006010215",
 					ReMatch:           "^\\d{10}(\\.\\w+)?$",
@@ -77,7 +74,7 @@ func NewDefaultConfig() *Config {
 					FileDir:     defaultReportLogDir,
 					FileName:    defaultLogName,
 					MaxFileSize: defaultMaxFileSize,
-					BackupCount: 50,
+					BackupCount: 24,
 					FileSuffix:  "report",
 
 					ErrCallback: func(err error) {

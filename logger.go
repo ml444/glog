@@ -66,7 +66,7 @@ type Logger struct {
 	isStop         bool
 }
 
-type FieldFunc func(entry *message.Entry) string
+//type FieldFunc func(entry *message.Entry) string
 
 var _ StdLogger = &Logger{}
 var _ ILogger = &Logger{}
