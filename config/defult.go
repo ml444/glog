@@ -7,25 +7,22 @@ import (
 	"strings"
 )
 
-var (
-	defaultLogDir       string
-	defaultReportLogDir string
-	defaultLogName      string
+const (
+	PatternTemplate1 = "%[LoggerName]s (%[Pid]d,%[RoutineId]d) %[DateTime]s.%[Msecs]d %[LevelName]s %[Caller]s %[Message]v"
+	PatternTemplate2 = "<%[TradeId]s> %[LoggerName]s (%[Pid]d,%[RoutineId]d) %[DateTime]s %[LevelName]s %[Caller]s %[Message]v"
 )
 
-func init() {
+func NewDefaultConfig() *Config {
 	curDir, err := os.Getwd()
 	if err != nil {
 		println(err.Error())
 	}
-	defaultLogDir = curDir
-	defaultReportLogDir = curDir
+	defaultLogDir := curDir
+	defaultReportLogDir := curDir
 
 	l := strings.Split(curDir, string(os.PathSeparator))
-	defaultLogName = l[len(l)-1]
-}
+	defaultLogName := l[len(l)-1]
 
-func NewDefaultConfig() *Config {
 	return &Config{
 		EngineType: EngineTypeChannel,
 
@@ -66,7 +63,7 @@ func NewDefaultConfig() *Config {
 					FormatterType:   FormatterTypeText,
 					TimestampFormat: DefaultTimestampFormat,
 					Text: TextFormatterConfig{
-						Pattern:                "<%[TradeId]s> %[LoggerName]s (%[Pid]d,%[RoutineId]d) %[DateTime]s %[LevelName]s %[Caller]s %[Message]v",
+						Pattern:                PatternTemplate1,
 						EnableQuote:            false,
 						EnableQuoteEmptyFields: false,
 						DisableColors:          false,
