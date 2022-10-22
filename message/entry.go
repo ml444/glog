@@ -1,7 +1,7 @@
 package message
 
 import (
-	"github.com/ml444/glog/levels"
+	"github.com/ml444/glog/level"
 	"reflect"
 	"runtime"
 	"time"
@@ -16,7 +16,7 @@ type Entry struct {
 	CallerLine int
 	RoutineId  int64
 
-	Level  levels.LogLevel
+	Level  level.LogLevel
 	Time   time.Time
 	Caller *runtime.Frame
 

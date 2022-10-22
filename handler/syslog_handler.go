@@ -1,15 +1,15 @@
 //go:build !windows && !plan9
 // +build !windows,!plan9
 
-package handlers
+package handler
 
 import (
 	"log/syslog"
 
 	"github.com/ml444/glog/config"
-	"github.com/ml444/glog/filters"
-	"github.com/ml444/glog/formatters"
-	"github.com/ml444/glog/levels"
+	"github.com/ml444/glog/filter"
+	"github.com/ml444/glog/formatter"
+	"github.com/ml444/glog/level"
 	"github.com/ml444/glog/message"
 )
 
@@ -21,21 +21,19 @@ type SyslogHandler struct {
 	priority int
 	tag      string
 
-	formatter formatters.IFormatter
-	filter    filters.IFilter
+	formatter formatter.IFormatter
+	filter    filter.IFilter
 }
 
 func NewSyslogHandler(handlerCfg *config.BaseHandlerConfig) (*SyslogHandler, error) {
-	formatter := formatters.GetNewFormatter(handlerCfg.Formatter)
-	filter := filters.GetNewFilter(handlerCfg.Filter)
 	cfg := handlerCfg.Syslog
 	h := &SyslogHandler{
 		network:   cfg.Network,
 		raddr:     cfg.Address,
 		priority:  cfg.Priority,
 		tag:       cfg.Tag,
-		formatter: formatter,
-		filter:    filter,
+		formatter: formatter.GetNewFormatter(handlerCfg.Formatter),
+		filter:    filter.GetNewFilter(handlerCfg.Filter),
 	}
 	err := h.Init()
 	if err != nil {
@@ -70,17 +68,17 @@ func (h *SyslogHandler) Emit(e *message.Entry) error {
 	msg := string(msgByte)
 
 	switch e.Level {
-	case levels.PanicLevel:
+	case level.PanicLevel:
 		return h.Writer.Crit(msg)
-	case levels.FatalLevel:
+	case level.FatalLevel:
 		return h.Writer.Crit(msg)
-	case levels.ErrorLevel:
+	case level.ErrorLevel:
 		return h.Writer.Err(msg)
-	case levels.WarnLevel:
+	case level.WarnLevel:
 		return h.Writer.Warning(msg)
-	case levels.InfoLevel:
+	case level.InfoLevel:
 		return h.Writer.Info(msg)
-	case levels.DebugLevel:
+	case level.DebugLevel:
 		return h.Writer.Debug(msg)
 	default:
 		return nil

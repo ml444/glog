@@ -7,11 +7,11 @@ import (
 	"time"
 
 	"github.com/ml444/glog/config"
-	"github.com/ml444/glog/engines"
+	"github.com/ml444/glog/engine"
 	"github.com/ml444/glog/message"
 	"github.com/petermattis/goid"
 
-	"github.com/ml444/glog/levels"
+	"github.com/ml444/glog/level"
 )
 
 type StdLogger interface {
@@ -29,9 +29,9 @@ type StdLogger interface {
 }
 
 type ILogger interface {
-	GetLevel() levels.LogLevel
-	SetLevel(levels.LogLevel)
-	EnabledLevel(level levels.LogLevel) bool
+	GetLevel() level.LogLevel
+	SetLevel(level.LogLevel)
+	EnabledLevel(lvl level.LogLevel) bool
 
 	Debug(...interface{})
 	Info(...interface{})
@@ -56,8 +56,8 @@ type ILogger interface {
 
 type Logger struct {
 	Name   string
-	Level  levels.LogLevel
-	engine engines.IEngine
+	Level  level.LogLevel
+	engine engine.IEngine
 
 	TradeIDFunc    func(entry *message.Entry) string
 	ExitFunc       func(code int) // Function to exit the application, defaults to `os.Exit()`
@@ -80,7 +80,7 @@ func NewLogger(cfg *config.Config) (*Logger, error) {
 		Name:           cfg.LoggerName,
 		Level:          cfg.LoggerLevel,
 		ExitFunc:       cfg.ExitFunc,
-		engine:         engines.NewEngine(cfg.EngineType),
+		engine:         engine.NewEngine(cfg.EngineType),
 		IsRecordCaller: cfg.IsRecordCaller,
 		TradeIDFunc:    cfg.TradeIDFunc,
 	}
@@ -102,7 +102,7 @@ func (l *Logger) init() (err error) {
 	}
 	return nil
 }
-func (l *Logger) send(level levels.LogLevel, msg interface{}) {
+func (l *Logger) send(lvl level.LogLevel, msg interface{}) {
 	if l.isStop {
 		return
 	}
@@ -112,7 +112,7 @@ func (l *Logger) send(level levels.LogLevel, msg interface{}) {
 		RoutineId: routineID,
 		Message:   msg,
 		Time:      time.Now(),
-		Level:     level,
+		Level:     lvl,
 		//ErrMsg:    "",
 	}
 	if l.TradeIDFunc != nil {
@@ -124,7 +124,7 @@ func (l *Logger) send(level levels.LogLevel, msg interface{}) {
 	}
 	l.engine.Send(entry)
 }
-func (l *Logger) log(lvl levels.LogLevel, args ...interface{}) {
+func (l *Logger) log(lvl level.LogLevel, args ...interface{}) {
 	if lvl < l.Level {
 		return
 	}
@@ -132,7 +132,7 @@ func (l *Logger) log(lvl levels.LogLevel, args ...interface{}) {
 	l.send(lvl, msg)
 	l.after(lvl)
 }
-func (l *Logger) logf(lvl levels.LogLevel, template string, args ...interface{}) {
+func (l *Logger) logf(lvl level.LogLevel, template string, args ...interface{}) {
 	if lvl < l.Level {
 		return
 	}
@@ -146,11 +146,11 @@ func (l *Logger) logf(lvl levels.LogLevel, template string, args ...interface{})
 	l.send(lvl, msg)
 	l.after(lvl)
 }
-func (l *Logger) after(lvl levels.LogLevel) {
-	if lvl == levels.FatalLevel || lvl == levels.PanicLevel {
+func (l *Logger) after(lvl level.LogLevel) {
+	if lvl == level.FatalLevel || lvl == level.PanicLevel {
 		l.printStack(2, lvl)
 	}
-	if (lvl == levels.PanicLevel) || (l.ExitOnFatal && lvl == levels.FatalLevel) {
+	if (lvl == level.PanicLevel) || (l.ExitOnFatal && lvl == level.FatalLevel) {
 		err := l.Stop()
 		if err != nil {
 			println(err)
@@ -158,7 +158,7 @@ func (l *Logger) after(lvl levels.LogLevel) {
 		l.ExitFunc(-1)
 	}
 }
-func (l *Logger) printStack(callDepth int, lvl levels.LogLevel) {
+func (l *Logger) printStack(callDepth int, lvl level.LogLevel) {
 	for ; ; callDepth++ {
 		pc, file, line, ok := runtime.Caller(callDepth)
 		if !ok {
@@ -172,50 +172,50 @@ func (l *Logger) printStack(callDepth int, lvl levels.LogLevel) {
 	}
 }
 
-func (l *Logger) EnabledLevel(lvl levels.LogLevel) bool {
+func (l *Logger) EnabledLevel(lvl level.LogLevel) bool {
 	return l.GetLevel() < lvl
 }
-func (l *Logger) GetLevel() levels.LogLevel {
+func (l *Logger) GetLevel() level.LogLevel {
 	return l.Level
 }
-func (l *Logger) SetLevel(lvl levels.LogLevel) {
+func (l *Logger) SetLevel(lvl level.LogLevel) {
 	l.Level = lvl
 }
 
-func (l *Logger) Debug(args ...interface{}) { l.log(levels.DebugLevel, args...) }
-func (l *Logger) Info(args ...interface{})  { l.log(levels.InfoLevel, args...) }
-func (l *Logger) Warn(args ...interface{})  { l.log(levels.WarnLevel, args...) }
-func (l *Logger) Error(args ...interface{}) { l.log(levels.ErrorLevel, args...) }
+func (l *Logger) Debug(args ...interface{}) { l.log(level.DebugLevel, args...) }
+func (l *Logger) Info(args ...interface{})  { l.log(level.InfoLevel, args...) }
+func (l *Logger) Warn(args ...interface{})  { l.log(level.WarnLevel, args...) }
+func (l *Logger) Error(args ...interface{}) { l.log(level.ErrorLevel, args...) }
 
 func (l *Logger) Debugf(template string, args ...interface{}) {
-	l.logf(levels.DebugLevel, template, args...)
+	l.logf(level.DebugLevel, template, args...)
 }
 func (l *Logger) Infof(template string, args ...interface{}) {
-	l.logf(levels.InfoLevel, template, args...)
+	l.logf(level.InfoLevel, template, args...)
 }
 func (l *Logger) Warnf(template string, args ...interface{}) {
-	l.logf(levels.WarnLevel, template, args...)
+	l.logf(level.WarnLevel, template, args...)
 }
 func (l *Logger) Errorf(template string, args ...interface{}) {
-	l.logf(levels.ErrorLevel, template, args...)
+	l.logf(level.ErrorLevel, template, args...)
 }
 
-func (l *Logger) Print(args ...interface{}) { l.log(levels.PrintLevel, args...) }
-func (l *Logger) Fatal(args ...interface{}) { l.log(levels.FatalLevel, args...) }
-func (l *Logger) Panic(args ...interface{}) { l.log(levels.PanicLevel, args...) }
+func (l *Logger) Print(args ...interface{}) { l.log(level.PrintLevel, args...) }
+func (l *Logger) Fatal(args ...interface{}) { l.log(level.FatalLevel, args...) }
+func (l *Logger) Panic(args ...interface{}) { l.log(level.PanicLevel, args...) }
 
-func (l *Logger) Println(args ...interface{}) { l.log(levels.PrintLevel, args...) }
-func (l *Logger) Fatalln(args ...interface{}) { l.log(levels.FatalLevel, args...) }
-func (l *Logger) Panicln(args ...interface{}) { l.log(levels.PanicLevel, args...) }
+func (l *Logger) Println(args ...interface{}) { l.log(level.PrintLevel, args...) }
+func (l *Logger) Fatalln(args ...interface{}) { l.log(level.FatalLevel, args...) }
+func (l *Logger) Panicln(args ...interface{}) { l.log(level.PanicLevel, args...) }
 
 func (l *Logger) Printf(template string, args ...interface{}) {
-	l.logf(levels.PrintLevel, template, args...)
+	l.logf(level.PrintLevel, template, args...)
 }
 func (l *Logger) Panicf(template string, args ...interface{}) {
-	l.logf(levels.PanicLevel, template, args...)
+	l.logf(level.PanicLevel, template, args...)
 }
 func (l *Logger) Fatalf(template string, args ...interface{}) {
-	l.logf(levels.FatalLevel, template, args...)
+	l.logf(level.FatalLevel, template, args...)
 }
 
 func (l *Logger) Stop() error {

@@ -1,25 +1,23 @@
-package handlers
+package handler
 
 import (
 	"os"
 
 	"github.com/ml444/glog/config"
-	"github.com/ml444/glog/filters"
-	"github.com/ml444/glog/formatters"
+	"github.com/ml444/glog/filter"
+	"github.com/ml444/glog/formatter"
 	"github.com/ml444/glog/message"
 )
 
 type DefaultHandler struct {
-	formatter formatters.IFormatter
-	filter    filters.IFilter
+	formatter formatter.IFormatter
+	filter    filter.IFilter
 }
 
 func NewDefaultHandler(handlerCfg *config.BaseHandlerConfig) (*DefaultHandler, error) {
-	formatter := formatters.GetNewFormatter(handlerCfg.Formatter)
-	filter := filters.GetNewFilter(handlerCfg.Filter)
 	return &DefaultHandler{
-		formatter: formatter,
-		filter:    filter,
+		formatter: formatter.GetNewFormatter(handlerCfg.Formatter),
+		filter:    filter.GetNewFilter(handlerCfg.Filter),
 	}, nil
 }
 

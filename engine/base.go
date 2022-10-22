@@ -1,4 +1,4 @@
-package engines
+package engine
 
 import (
 	"github.com/ml444/glog/config"

@@ -1,19 +1,19 @@
-package engines
+package engine
 
 import (
 	"github.com/ml444/glog/config"
-	"github.com/ml444/glog/handlers"
-	"github.com/ml444/glog/levels"
+	"github.com/ml444/glog/handler"
+	"github.com/ml444/glog/level"
 	"github.com/ml444/glog/message"
 )
 
 type ChannelEngine struct {
-	msgHandlers  []handlers.IHandler
+	msgHandlers  []handler.IHandler
 	msgChan      chan *message.Entry
 	reportChan   chan *message.Entry
 	doneChan     chan bool
 	enableReport bool
-	reportLevel  levels.LogLevel
+	reportLevel  level.LogLevel
 
 	OnError func(msg *message.Entry, err error)
 }
@@ -33,17 +33,17 @@ func (e *ChannelEngine) Init() error {
 }
 
 func (e *ChannelEngine) Start() error {
-	handler, err := handlers.GetNewHandler(config.GlobalConfig.Handler.LogHandlerConfig)
+	h, err := handler.GetNewHandler(config.GlobalConfig.Handler.LogHandlerConfig)
 	if err != nil {
 		e.doneChan <- true
 		return err
 	}
-	e.msgHandlers = append(e.msgHandlers, handler)
+	e.msgHandlers = append(e.msgHandlers, h)
 	go func() {
 		for {
 			select {
 			case msg := <-e.msgChan:
-				err = handler.Emit(msg)
+				err = h.Emit(msg)
 				if err != nil && e.OnError != nil {
 					e.OnError(msg, err)
 				}
@@ -57,8 +57,8 @@ func (e *ChannelEngine) Start() error {
 		}
 	}()
 	if e.enableReport {
-		var reportHandler handlers.IHandler
-		reportHandler, err = handlers.GetNewHandler(config.GlobalConfig.Handler.ReportHandlerConfig)
+		var reportHandler handler.IHandler
+		reportHandler, err = handler.GetNewHandler(config.GlobalConfig.Handler.ReportHandlerConfig)
 		if err != nil {
 			e.doneChan <- true
 			return err

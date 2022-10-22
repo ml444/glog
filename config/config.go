@@ -1,7 +1,7 @@
 package config
 
 import (
-	"github.com/ml444/glog/levels"
+	"github.com/ml444/glog/level"
 	"github.com/ml444/glog/message"
 	"time"
 )
@@ -69,8 +69,8 @@ type Config struct {
 	IsRecordCaller bool
 	EnableReport   bool
 
-	LoggerLevel     levels.LogLevel
-	ReportLevel     levels.LogLevel
+	LoggerLevel     level.LogLevel
+	ReportLevel     level.LogLevel
 	ReportCacheSize int
 	LoggerCacheSize int
 	EngineType      EngineType

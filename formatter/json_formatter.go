@@ -1,4 +1,4 @@
-package formatters
+package formatter
 
 import (
 	"bytes"
@@ -10,8 +10,7 @@ import (
 )
 
 type JSONFormatter struct {
-
-	TimestampFormat string
+	TimestampFormat  string
 	CallerPrettyFunc func(*runtime.Frame) (function string, file string)
 
 	// DisableTimestamp allows disabling automatic timestamps in output
@@ -19,7 +18,6 @@ type JSONFormatter struct {
 
 	// DisableHTMLEscape allows disabling html escaping in output
 	DisableHTMLEscape bool
-
 
 	// PrettyPrint will indent all json logs
 	PrettyPrint bool
@@ -57,9 +55,9 @@ func (f *JSONFormatter) FillRecord(entry *message.Entry) *message.Record {
 	}
 
 	record := &message.Record{
-		Level:    entry.Level.String(),
-		Message:  entry.Message,
-		ErrMsg:   entry.ErrMsg,
+		Level:   entry.Level.String(),
+		Message: entry.Message,
+		ErrMsg:  entry.ErrMsg,
 	}
 
 	record.Datetime = entry.Time.Format(f.TimestampFormat)

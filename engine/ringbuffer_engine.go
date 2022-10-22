@@ -1,9 +1,9 @@
-package engines
+package engine
 
 import (
 	"github.com/ml444/glog/config"
-	"github.com/ml444/glog/handlers"
-	"github.com/ml444/glog/levels"
+	"github.com/ml444/glog/handler"
+	"github.com/ml444/glog/level"
 	"github.com/ml444/glog/message"
 	"github.com/ml444/samsara"
 	"github.com/ml444/samsara/publish"
@@ -15,9 +15,9 @@ type RingBufferEngine struct {
 	producer      publish.IPublisher
 	doneChan      chan bool
 	enableReport  bool
-	reportLevel   levels.LogLevel
-	normalHandler handlers.IHandler
-	reportHandler handlers.IHandler
+	reportLevel   level.LogLevel
+	normalHandler handler.IHandler
+	reportHandler handler.IHandler
 
 	OnError func(msg *message.Entry, err error)
 }
@@ -32,13 +32,13 @@ func NewRingBufferEngine() *RingBufferEngine {
 }
 
 func (e *RingBufferEngine) Init() (err error) {
-	e.normalHandler, err = handlers.GetNewHandler(config.GlobalConfig.Handler.LogHandlerConfig)
+	e.normalHandler, err = handler.GetNewHandler(config.GlobalConfig.Handler.LogHandlerConfig)
 	if err != nil {
 		e.doneChan <- true
 		return err
 	}
 	if e.enableReport {
-		e.reportHandler, err = handlers.GetNewHandler(config.GlobalConfig.Handler.ReportHandlerConfig)
+		e.reportHandler, err = handler.GetNewHandler(config.GlobalConfig.Handler.ReportHandlerConfig)
 		if err != nil {
 			e.doneChan <- true
 			return err

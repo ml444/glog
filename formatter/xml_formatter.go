@@ -1,4 +1,4 @@
-package formatters
+package formatter
 
 import (
 	"github.com/ml444/glog/config"
@@ -11,7 +11,7 @@ type XMLFormatter struct {
 
 func NewXMLFormatter(formatterCfg config.FormatterConfig) *XMLFormatter {
 	return &XMLFormatter{
-		TimestampFormat:   formatterCfg.TimestampFormat,
+		TimestampFormat: formatterCfg.TimestampFormat,
 	}
 }
 

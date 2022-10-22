@@ -1,11 +1,11 @@
-package handlers
+package handler
 
 import (
 	"errors"
 	"fmt"
 	"github.com/ml444/glog/config"
-	"github.com/ml444/glog/filters"
-	"github.com/ml444/glog/formatters"
+	"github.com/ml444/glog/filter"
+	"github.com/ml444/glog/formatter"
 	"github.com/ml444/glog/message"
 	"io"
 	"os"
@@ -17,16 +17,14 @@ type StreamHandler struct {
 	//BaseHandler
 	stream io.Writer
 
-	formatter formatters.IFormatter
-	filter    filters.IFilter
+	formatter formatter.IFormatter
+	filter    filter.IFilter
 }
 
 func NewStreamHandler(handlerCfg *config.BaseHandlerConfig) (*StreamHandler, error) {
-	formatter := formatters.GetNewFormatter(handlerCfg.Formatter)
-	filter := filters.GetNewFilter(handlerCfg.Filter)
 	return &StreamHandler{
-		filter:    filter,
-		formatter: formatter,
+		filter:    filter.GetNewFilter(handlerCfg.Filter),
+		formatter: formatter.GetNewFormatter(handlerCfg.Formatter),
 		stream:    os.Stdout,
 	}, nil
 }
@@ -85,6 +83,6 @@ func (h *StreamHandler) Close() error {
 	return nil
 }
 
-func (h StreamHandler) SetStream(stream io.Writer) {
+func (h *StreamHandler) SetStream(stream io.Writer) {
 	h.stream = stream
 }

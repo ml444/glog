@@ -2,7 +2,7 @@
 
  */
 
-package formatters
+package formatter
 
 import (
 	"bytes"
@@ -13,7 +13,7 @@ import (
 	"strings"
 
 	"github.com/ml444/glog/config"
-	"github.com/ml444/glog/levels"
+	"github.com/ml444/glog/level"
 	"github.com/ml444/glog/message"
 	"github.com/ml444/glog/util"
 )
@@ -191,13 +191,13 @@ func (f *TextFormatter) appendValue(b *bytes.Buffer, value interface{}) {
 	}
 }
 
-func Color(l levels.LogLevel) string {
+func Color(l level.LogLevel) string {
 	switch l {
-	case levels.DebugLevel:
+	case level.DebugLevel:
 		return blue
-	case levels.InfoLevel:
+	case level.InfoLevel:
 		return green
-	case levels.WarnLevel:
+	case level.WarnLevel:
 		return yellow
 	default:
 		return red

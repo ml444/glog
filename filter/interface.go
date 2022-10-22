@@ -1,4 +1,4 @@
-package filters
+package filter
 
 import (
 	"github.com/ml444/glog/config"
@@ -8,7 +8,6 @@ import (
 type IFilter interface {
 	Filter(record *message.Entry) bool
 }
-
 
 func GetNewFilter(filterCfg config.FilterConfig) IFilter {
 	return nil

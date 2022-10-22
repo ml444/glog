@@ -1,6 +1,6 @@
 package config
 
-import "github.com/ml444/glog/levels"
+import "github.com/ml444/glog/level"
 
 type OptionFunc func(config *Config)
 
@@ -8,11 +8,11 @@ func SetLoggerName(name string) OptionFunc {
 	return func(cfg *Config) { cfg.LoggerName = name }
 }
 
-func SetLevel2Logger(level levels.LogLevel) OptionFunc {
-	return func(cfg *Config) { cfg.LoggerLevel = level }
+func SetLevel2Logger(lvl level.LogLevel) OptionFunc {
+	return func(cfg *Config) { cfg.LoggerLevel = lvl }
 }
-func SetLevel2Report(level levels.LogLevel) OptionFunc {
-	return func(cfg *Config) { cfg.ReportLevel = level }
+func SetLevel2Report(lvl level.LogLevel) OptionFunc {
+	return func(cfg *Config) { cfg.ReportLevel = lvl }
 }
 
 func SetEnableReport(enable bool) OptionFunc {

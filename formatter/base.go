@@ -1,4 +1,4 @@
-package formatters
+package formatter
 
 import (
 	"github.com/ml444/glog/config"

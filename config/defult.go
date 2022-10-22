@@ -1,7 +1,7 @@
 package config
 
 import (
-	"github.com/ml444/glog/levels"
+	"github.com/ml444/glog/level"
 	"github.com/ml444/glog/message"
 	"os"
 	"strings"
@@ -27,11 +27,11 @@ func NewDefaultConfig() *Config {
 		EngineType: EngineTypeChannel,
 
 		LoggerName:      defaultLogName,
-		LoggerLevel:     levels.InfoLevel,
+		LoggerLevel:     level.InfoLevel,
 		LoggerCacheSize: 1024 * 64,
 
 		EnableReport:    false,
-		ReportLevel:     levels.ErrorLevel,
+		ReportLevel:     level.ErrorLevel,
 		ReportCacheSize: 10000,
 
 		ExitFunc: os.Exit,

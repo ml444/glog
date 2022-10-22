@@ -1,10 +1,10 @@
-package handlers
+package handler
 
 import (
 	"errors"
 	"github.com/ml444/glog/config"
-	"github.com/ml444/glog/filters"
-	"github.com/ml444/glog/formatters"
+	"github.com/ml444/glog/filter"
+	"github.com/ml444/glog/formatter"
 	"github.com/ml444/glog/message"
 	"io"
 	"os"
@@ -13,8 +13,8 @@ import (
 )
 
 type FileHandler struct {
-	formatter formatters.IFormatter
-	filter    filters.IFilter
+	formatter formatter.IFormatter
+	filter    filter.IFilter
 	rotator   IRotator
 
 	bufChan      chan []byte
@@ -26,15 +26,13 @@ type FileHandler struct {
 }
 
 func NewFileHandler(handlerCfg *config.BaseHandlerConfig) (*FileHandler, error) {
-	formatter := formatters.GetNewFormatter(handlerCfg.Formatter)
-	filter := filters.GetNewFilter(handlerCfg.Filter)
 	rotator, err := GetRotator4Config(&handlerCfg.File)
 	if err != nil {
 		return nil, err
 	}
 	h := &FileHandler{
-		formatter:     formatter,
-		filter:        filter,
+		formatter:     formatter.GetNewFormatter(handlerCfg.Formatter),
+		filter:        filter.GetNewFilter(handlerCfg.Filter),
 		rotator:       rotator,
 		ErrorCallback: handlerCfg.File.ErrCallback,
 	}
