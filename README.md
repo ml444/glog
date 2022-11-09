@@ -73,7 +73,7 @@ func main() {
 	log.Info("hello world")
 	// doing something
 
-	_ = log.Exit()
+	log.Exit()
 }
 ```
 More detailed configuration can be seen in the code: `config/option.go` and `config/config.go`.
@@ -144,7 +144,7 @@ func main() {
 	log.Info("hello world")
 	// doing something
 
-	_ = log.Exit()
+	log.Exit()
 }
 ```
 

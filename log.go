@@ -1,7 +1,6 @@
 package log
 
 import (
-	"errors"
 	"github.com/ml444/glog/config"
 )
 
@@ -55,9 +54,12 @@ func Printf(template string, args ...interface{}) { logger.Printf(template, args
 func Panicf(template string, args ...interface{}) { logger.Panicf(template, args...) }
 func Fatalf(template string, args ...interface{}) { logger.Fatalf(template, args...) }
 
-func Exit() error {
+func Exit() {
 	if logger != nil {
-		return logger.Stop()
+		if err := logger.Stop(); err != nil {
+			println(err)
+			return
+		}
 	}
-	return errors.New("logger not open")
+	return
 }
