@@ -26,6 +26,10 @@ type FileHandler struct {
 }
 
 func NewFileHandler(handlerCfg *config.BaseHandlerConfig) (*FileHandler, error) {
+	// Redirects the standard error output to the specified file,
+	// in order to preserve the panic information during panic.
+	rewriteStderr(handlerCfg.File.FileDir, config.GlobalConfig.LoggerName)
+
 	rotator, err := GetRotator4Config(&handlerCfg.File)
 	if err != nil {
 		return nil, err

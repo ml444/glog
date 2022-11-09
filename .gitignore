@@ -20,3 +20,5 @@ go.sum
 *_test.go
 
 filter/bloom.go
+
+/test
