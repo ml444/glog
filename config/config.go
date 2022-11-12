@@ -119,6 +119,7 @@ type FileHandlerConfig struct {
 }
 
 type StreamHandlerConfig struct {
+	Streamer inter.IStreamer
 }
 type SyslogHandlerConfig struct {
 	Network  string

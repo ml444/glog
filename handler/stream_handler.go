@@ -12,18 +12,19 @@ import (
 const terminator = '\n'
 
 type StreamHandler struct {
-	//BaseHandler
-	stream io.Writer
-
+	stream    inter.IStreamer
 	formatter formatter.IFormatter
 	filter    inter.IFilter
 }
 
 func NewStreamHandler(handlerCfg *config.BaseHandlerConfig) (*StreamHandler, error) {
+	if handlerCfg.Stream.Streamer == nil {
+		return nil, errors.New("streamer is nil")
+	}
 	return &StreamHandler{
 		filter:    handlerCfg.Filter,
 		formatter: formatter.GetNewFormatter(handlerCfg.Formatter),
-		stream:    os.Stdout,
+		stream:    handlerCfg.Stream.Streamer,
 	}, nil
 }
 
@@ -60,6 +61,7 @@ func (h *StreamHandler) Emit(record *message.Entry) error {
 }
 
 func (h *StreamHandler) Close() error {
+	h.stream.Close()
 	return nil
 }
 
