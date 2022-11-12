@@ -1,6 +1,7 @@
 package config
 
 import (
+	"github.com/ml444/glog/inter"
 	"github.com/ml444/glog/level"
 	"github.com/ml444/glog/message"
 	"time"
@@ -96,7 +97,7 @@ type BaseHandlerConfig struct {
 	Syslog      SyslogHandlerConfig
 
 	Formatter FormatterConfig
-	Filter    FilterConfig
+	Filter    inter.IFilter
 }
 
 type FileHandlerConfig struct {

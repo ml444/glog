@@ -4,10 +4,10 @@
 package handler
 
 import (
+	"github.com/ml444/glog/inter"
 	"log/syslog"
 
 	"github.com/ml444/glog/config"
-	"github.com/ml444/glog/filter"
 	"github.com/ml444/glog/formatter"
 	"github.com/ml444/glog/level"
 	"github.com/ml444/glog/message"
@@ -22,7 +22,7 @@ type SyslogHandler struct {
 	tag      string
 
 	formatter formatter.IFormatter
-	filter    filter.IFilter
+	filter    inter.IFilter
 }
 
 func NewSyslogHandler(handlerCfg *config.BaseHandlerConfig) (*SyslogHandler, error) {
@@ -33,7 +33,7 @@ func NewSyslogHandler(handlerCfg *config.BaseHandlerConfig) (*SyslogHandler, err
 		priority:  cfg.Priority,
 		tag:       cfg.Tag,
 		formatter: formatter.GetNewFormatter(handlerCfg.Formatter),
-		filter:    filter.GetNewFilter(handlerCfg.Filter),
+		filter:    handlerCfg.Filter,
 	}
 	err := h.Init()
 	if err != nil {

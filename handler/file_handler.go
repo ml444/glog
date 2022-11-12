@@ -3,8 +3,8 @@ package handler
 import (
 	"errors"
 	"github.com/ml444/glog/config"
-	"github.com/ml444/glog/filter"
 	"github.com/ml444/glog/formatter"
+	"github.com/ml444/glog/inter"
 	"github.com/ml444/glog/message"
 	"io"
 	"os"
@@ -14,7 +14,7 @@ import (
 
 type FileHandler struct {
 	formatter formatter.IFormatter
-	filter    filter.IFilter
+	filter    inter.IFilter
 	rotator   IRotator
 
 	bufChan      chan []byte
@@ -36,7 +36,7 @@ func NewFileHandler(handlerCfg *config.BaseHandlerConfig) (*FileHandler, error) 
 	}
 	h := &FileHandler{
 		formatter:     formatter.GetNewFormatter(handlerCfg.Formatter),
-		filter:        filter.GetNewFilter(handlerCfg.Filter),
+		filter:        handlerCfg.Filter,
 		rotator:       rotator,
 		ErrorCallback: handlerCfg.File.ErrCallback,
 	}

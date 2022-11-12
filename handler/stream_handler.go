@@ -4,11 +4,9 @@ import (
 	"errors"
 	"fmt"
 	"github.com/ml444/glog/config"
-	"github.com/ml444/glog/filter"
 	"github.com/ml444/glog/formatter"
+	"github.com/ml444/glog/inter"
 	"github.com/ml444/glog/message"
-	"io"
-	"os"
 )
 
 const terminator = '\n'
@@ -18,12 +16,12 @@ type StreamHandler struct {
 	stream io.Writer
 
 	formatter formatter.IFormatter
-	filter    filter.IFilter
+	filter    inter.IFilter
 }
 
 func NewStreamHandler(handlerCfg *config.BaseHandlerConfig) (*StreamHandler, error) {
 	return &StreamHandler{
-		filter:    filter.GetNewFilter(handlerCfg.Filter),
+		filter:    handlerCfg.Filter,
 		formatter: formatter.GetNewFormatter(handlerCfg.Formatter),
 		stream:    os.Stdout,
 	}, nil

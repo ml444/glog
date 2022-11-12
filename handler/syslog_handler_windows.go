@@ -8,8 +8,8 @@ import (
 	"os"
 
 	"github.com/ml444/glog/config"
-	"github.com/ml444/glog/filter"
 	"github.com/ml444/glog/formatter"
+	"github.com/ml444/glog/inter"
 	"github.com/ml444/glog/level"
 	"github.com/ml444/glog/message"
 )
@@ -18,17 +18,14 @@ type SyslogHandler struct {
 	Writer io.Writer
 
 	formatter formatter.IFormatter
-	filter    filter.IFilter
+	filter    inter.IFilter
 }
 
 func NewSyslogHandler(handlerCfg *config.BaseHandlerConfig) (*SyslogHandler, error) {
 	h := &SyslogHandler{
+		Writer:    os.Stdout,
 		formatter: formatter.GetNewFormatter(handlerCfg.Formatter),
-		filter:    filter.GetNewFilter(handlerCfg.Filter),
-	}
-	err := h.Init()
-	if err != nil {
-		return nil, err
+		filter:    handlerCfg.Filter,
 	}
 	return h, nil
 }
@@ -38,11 +35,6 @@ func (h *SyslogHandler) format(record *message.Entry) ([]byte, error) {
 		return h.formatter.Format(record)
 	}
 	return nil, nil
-}
-
-func (h *SyslogHandler) Init() error {
-	h.Writer = os.Stdout
-	return nil
 }
 
 func (h *SyslogHandler) Emit(e *message.Entry) error {
