@@ -141,6 +141,14 @@ type TextFormatterConfig struct {
 	DisableColors          bool
 }
 type JSONFormatterConfig struct {
+	// DisableTimestamp allows disabling automatic timestamps in output
+	DisableTimestamp bool
+
+	// DisableHTMLEscape allows disabling html escaping in output
+	DisableHTMLEscape bool
+
+	// PrettyPrint will indent all json logs
+	PrettyPrint bool
 }
 
 type XMLFormatterConfig struct {

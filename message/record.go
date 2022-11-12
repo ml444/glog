@@ -1,5 +1,11 @@
 package message
 
+import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+)
+
 type Record struct {
 	Module     string      `json:"module,omitempty"`
 	Level      string      `json:"level,omitempty"`
@@ -15,4 +21,17 @@ type Record struct {
 	TradeId    string      `json:"trade_id,omitempty"`
 	Message    interface{} `json:"msg,omitempty"`
 	ErrMsg     string      `json:"err_msg,omitempty"`
+}
+
+func (r *Record) Bytes(disableHTMLEscape, prettyPrint bool) ([]byte, error) {
+	b := &bytes.Buffer{}
+	encoder := json.NewEncoder(b)
+	encoder.SetEscapeHTML(!disableHTMLEscape)
+	if prettyPrint {
+		encoder.SetIndent("", "  ")
+	}
+	if err := encoder.Encode(r); err != nil {
+		return nil, fmt.Errorf("failed to encoding record to JSON, %w", err)
+	}
+	return b.Bytes(), nil
 }
