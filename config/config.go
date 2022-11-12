@@ -144,5 +144,3 @@ type JSONFormatterConfig struct {
 
 type XMLFormatterConfig struct {
 }
-type FilterConfig struct {
-}

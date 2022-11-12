@@ -68,7 +68,3 @@ func (h *SyslogHandler) Emit(e *message.Entry) error {
 func (h *SyslogHandler) Close() error {
 	return nil
 }
-
-func (h *SyslogHandler) Flush() {
-
-}

@@ -27,10 +27,6 @@ func NewStreamHandler(handlerCfg *config.BaseHandlerConfig) (*StreamHandler, err
 	}, nil
 }
 
-func (h *StreamHandler) Init(dir, name string) error {
-	return nil
-}
-
 func (h *StreamHandler) format(record *message.Entry) ([]byte, error) {
 	if h.formatter != nil {
 		return h.formatter.Format(record)
@@ -44,7 +40,6 @@ func (h *StreamHandler) emit(msg []byte) error {
 	if err != nil {
 		return err
 	}
-	h.Flush()
 	return nil
 }
 
@@ -60,27 +55,25 @@ func (h *StreamHandler) Emit(record *message.Entry) error {
 		return err
 	}
 
-	//h.Acquire()
 	err = h.emit(msgByte)
-	//h.Release()
 	return err
 }
 
-// Flushes the stream.
-func (h *StreamHandler) Flush() {
-	/*
-	   	self.acquire()
-	      try:
-	   	   if self.stream and hasattr(self.stream, "flush"):
-	   		   self.stream.flush()
-	      finally:
-	   	   self.release()
-	*/
-}
 func (h *StreamHandler) Close() error {
 	return nil
 }
 
-func (h *StreamHandler) SetStream(stream io.Writer) {
-	h.stream = stream
-}
+//// Flush : Flushes the stream.
+//func (h *StreamHandler) Flush() {
+//	/*
+//	   	self.acquire()
+//	      try:
+//	   	   if self.stream and hasattr(self.stream, "flush"):
+//	   		   self.stream.flush()
+//	      finally:
+//	   	   self.release()
+//	*/
+//}
+//func (h *StreamHandler) SetStream(stream inter.IStreamer) {
+//	h.stream = stream
+//}
