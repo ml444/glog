@@ -135,20 +135,15 @@ type FormatterConfig struct {
 	Xml             XMLFormatterConfig
 }
 type TextFormatterConfig struct {
-	Pattern                string
-	EnableQuote            bool
-	EnableQuoteEmptyFields bool
-	DisableColors          bool
+	PatternStyle           string // style template for formatting the data, which determines the order of the fields and the presentation style.
+	EnableQuote            bool   // keep the string literal, while escaping safely if necessary.
+	EnableQuoteEmptyFields bool   // when the value of field is empty, keep the string literal.
+	DisableColors          bool   // adding color rendering to the output.
 }
 type JSONFormatterConfig struct {
-	// DisableTimestamp allows disabling automatic timestamps in output
-	DisableTimestamp bool
-
-	// DisableHTMLEscape allows disabling html escaping in output
-	DisableHTMLEscape bool
-
-	// PrettyPrint will indent all json logs
-	PrettyPrint bool
+	DisableTimestamp  bool // allows disabling automatic timestamps in output.
+	DisableHTMLEscape bool // allows disabling html escaping in output.
+	PrettyPrint       bool // will indent all json logs.
 }
 
 type XMLFormatterConfig struct {

@@ -39,6 +39,19 @@ var (
 	colorEnd = "\x1b[0m"
 )
 
+func Color(l level.LogLevel) string {
+	switch l {
+	case level.DebugLevel:
+		return blue
+	case level.InfoLevel:
+		return green
+	case level.WarnLevel:
+		return yellow
+	default:
+		return red
+	}
+}
+
 type writeFunc func(b *bytes.Buffer, entry *message.Entry)
 
 // TextFormatter formats logs into text
@@ -50,16 +63,15 @@ type TextFormatter struct {
 	TimestampFormat          string
 	msgPrefix                string
 	msgSuffix                string
-	sepList                  []string
 	sepListLen               int
+	sepList                  []string
 	writeFuncList            []writeFunc
-	writeFuncMap             map[string]writeFunc
 }
 
 func NewTextFormatter(formatterCfg config.FormatterConfig) *TextFormatter {
 	var isCustom bool
 	textCfg := formatterCfg.Text
-	if textCfg.Pattern != "" {
+	if textCfg.PatternStyle != "" {
 		isCustom = true
 	}
 	textFormatter := TextFormatter{
@@ -69,29 +81,8 @@ func NewTextFormatter(formatterCfg config.FormatterConfig) *TextFormatter {
 		EnableQuoteEmptyFields:   textCfg.EnableQuoteEmptyFields,
 		DisableColors:            textCfg.DisableColors,
 	}
-	textFormatter.init()
-	textFormatter.parseWriteFuncList(textCfg.Pattern)
+	textFormatter.parseWriteFuncList(textCfg.PatternStyle)
 	return &textFormatter
-}
-
-func (f *TextFormatter) init() {
-	f.writeFuncMap = map[string]writeFunc{
-		"LoggerName": f.writeLogName,
-		"Caller":     f.writeCaller,
-		"Pid":        f.writePid,
-		"RoutineId":  f.writeRoutineId,
-		"Ip":         f.writeIP,
-		"HostName":   f.writeHostName,
-		"File":       f.writeFilepath,
-		"Line":       f.writeFuncLine,
-		"Func":       f.writeFuncName,
-		"TradeId":    f.writeTradeId,
-		"LevelName":  f.writeLogLevel,
-		"LevelNo":    f.writeLogLevelNo,
-		"DateTime":   f.writeDateTime,
-		"Msecs":      f.writeTimeMs,
-		"Message":    f.writeMessage,
-	}
 }
 
 // Format renders a single log entry
@@ -160,43 +151,7 @@ func (f *TextFormatter) needsQuoting(text string) bool {
 		return true
 	}
 
-	// todo 特殊字符转义
 	return false
-}
-
-func (f *TextFormatter) appendKeyValue(b *bytes.Buffer, key string, value interface{}) {
-	if b.Len() > 0 {
-		b.WriteByte(' ')
-	}
-	b.WriteString(key)
-	b.WriteByte('=')
-	f.appendValue(b, value)
-}
-
-func (f *TextFormatter) appendValue(b *bytes.Buffer, value interface{}) {
-	stringVal, ok := value.(string)
-	if !ok {
-		stringVal = fmt.Sprint(value)
-	}
-
-	if !f.needsQuoting(stringVal) {
-		b.WriteString(stringVal)
-	} else {
-		b.WriteString(fmt.Sprintf("%q", stringVal))
-	}
-}
-
-func Color(l level.LogLevel) string {
-	switch l {
-	case level.DebugLevel:
-		return blue
-	case level.InfoLevel:
-		return green
-	case level.WarnLevel:
-		return yellow
-	default:
-		return red
-	}
 }
 
 func (f *TextFormatter) writeLogName(b *bytes.Buffer, entry *message.Entry) {
@@ -284,6 +239,23 @@ func (f *TextFormatter) parseWriteFuncList(src string) {
 	if src == "" {
 		return
 	}
+	writeFuncMap := map[string]writeFunc{
+		"LoggerName": f.writeLogName,
+		"Caller":     f.writeCaller,
+		"Pid":        f.writePid,
+		"RoutineId":  f.writeRoutineId,
+		"Ip":         f.writeIP,
+		"HostName":   f.writeHostName,
+		"File":       f.writeFilepath,
+		"Line":       f.writeFuncLine,
+		"Func":       f.writeFuncName,
+		"TradeId":    f.writeTradeId,
+		"LevelName":  f.writeLogLevel,
+		"LevelNo":    f.writeLogLevelNo,
+		"DateTime":   f.writeDateTime,
+		"Msecs":      f.writeTimeMs,
+		"Message":    f.writeMessage,
+	}
 	var regexpPattern = regexp.MustCompile(`%\[(\w+)?\][sdfwvtq]`)
 	result := regexpPattern.FindAllStringSubmatchIndex(src, -1)
 	var preIdx int
@@ -299,11 +271,11 @@ func (f *TextFormatter) parseWriteFuncList(src string) {
 		}
 
 		key := src[idxList[2]:idxList[3]]
-		fn, ok := f.writeFuncMap[key]
+		fn, ok := writeFuncMap[key]
 		if ok {
 			list = append(list, fn)
 		} else {
-			println(fmt.Sprintf("%s in config.Text.Pattern,but it isn't in writeFuncMap", key))
+			println(fmt.Sprintf("%s in config.Text.PatternStyle,but it isn't in writeFuncMap", key))
 		}
 		if preIdx != 0 {
 			strList = append(strList, src[preIdx:idxList[0]])

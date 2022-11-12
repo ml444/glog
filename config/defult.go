@@ -60,7 +60,7 @@ func NewDefaultConfig() *Config {
 					FormatterType:   FormatterTypeText,
 					TimestampFormat: DefaultTimestampFormat,
 					Text: TextFormatterConfig{
-						Pattern:                PatternTemplate1,
+						PatternStyle:           PatternTemplate1,
 						EnableQuote:            false,
 						EnableQuoteEmptyFields: false,
 						DisableColors:          false,

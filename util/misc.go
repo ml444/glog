@@ -14,7 +14,7 @@ func parseFormatTemp(src string) string {
 	regexpReplaceFunc := func(s string) string {
 		v, ok := regexpFieldMap[s]
 		if !ok {
-			panic(fmt.Sprintf("%s in config.Text.Pattern,But it isn't in the field of Entry", s))
+			panic(fmt.Sprintf("%s in config.Text.PatternStyle,But it isn't in the field of Entry", s))
 		}
 		return strconv.FormatInt(int64(v), 10)
 	}
