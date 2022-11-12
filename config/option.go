@@ -1,6 +1,9 @@
 package config
 
-import "github.com/ml444/glog/level"
+import (
+	"github.com/ml444/glog/inter"
+	"github.com/ml444/glog/level"
+)
 
 type OptionFunc func(config *Config)
 
@@ -116,6 +119,63 @@ func SetFileTimeFmtSuffix2Logger(timeFmt string) OptionFunc {
 func SetFileTimeFmtSuffix2Report(timeFmt string) OptionFunc {
 	return func(cfg *Config) {
 		cfg.Handler.ReportHandlerConfig.File.TimeSuffixFmt = timeFmt
+	}
+}
+
+func SetFileHandlerConfig2Logger(fileCfg FileHandlerConfig) OptionFunc {
+	return func(cfg *Config) {
+		cfg.Handler.LogHandlerConfig.File = fileCfg
+	}
+}
+func SetFileHandlerConfig2Report(fileCfg FileHandlerConfig) OptionFunc {
+	return func(cfg *Config) {
+		cfg.Handler.ReportHandlerConfig.File = fileCfg
+	}
+}
+
+func SetStreamer2Logger(streamer inter.IStreamer) OptionFunc {
+	return func(cfg *Config) {
+		cfg.Handler.LogHandlerConfig.HandlerType = HandlerTypeStream
+		cfg.Handler.LogHandlerConfig.Stream.Streamer = streamer
+	}
+}
+func SetStreamer2Report(streamer inter.IStreamer) OptionFunc {
+	return func(cfg *Config) {
+		cfg.Handler.ReportHandlerConfig.HandlerType = HandlerTypeStream
+		cfg.Handler.ReportHandlerConfig.Stream.Streamer = streamer
+	}
+}
+
+func SetSyslogHandlerConfig2Logger(syslogCfg SyslogHandlerConfig) OptionFunc {
+	return func(cfg *Config) {
+		cfg.Handler.LogHandlerConfig.Syslog = syslogCfg
+	}
+}
+func SetSyslogHandlerConfig2Report(syslogCfg SyslogHandlerConfig) OptionFunc {
+	return func(cfg *Config) {
+		cfg.Handler.ReportHandlerConfig.Syslog = syslogCfg
+	}
+}
+
+func SetFormatterConfig2Logger(formatterCfg FormatterConfig) OptionFunc {
+	return func(cfg *Config) {
+		cfg.Handler.LogHandlerConfig.Formatter = formatterCfg
+	}
+}
+func SetFormatterConfig2Report(formatterCfg FormatterConfig) OptionFunc {
+	return func(cfg *Config) {
+		cfg.Handler.ReportHandlerConfig.Formatter = formatterCfg
+	}
+}
+
+func SetFormatterType2Logger(typ FormatterType) OptionFunc {
+	return func(cfg *Config) {
+		cfg.Handler.LogHandlerConfig.Formatter.FormatterType = typ
+	}
+}
+func SetFormatterType2Report(typ FormatterType) OptionFunc {
+	return func(cfg *Config) {
+		cfg.Handler.ReportHandlerConfig.Formatter.FormatterType = typ
 	}
 }
 
