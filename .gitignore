@@ -22,3 +22,4 @@ go.sum
 filter/bloom.go
 
 /test
+/misc

@@ -10,8 +10,7 @@ import (
 type EngineType int
 
 const (
-	EngineTypeChannel    EngineType = 1
-	EngineTypeRingBuffer EngineType = 2
+	EngineTypeChannel EngineType = 1
 )
 
 type HandlerType int
