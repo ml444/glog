@@ -3,8 +3,8 @@ package handler
 import (
 	"errors"
 	"github.com/ml444/glog/config"
+	"github.com/ml444/glog/filter"
 	"github.com/ml444/glog/formatter"
-	"github.com/ml444/glog/inter"
 	"github.com/ml444/glog/message"
 	"io"
 	"os"
@@ -14,7 +14,7 @@ import (
 
 type FileHandler struct {
 	formatter formatter.IFormatter
-	filter    inter.IFilter
+	filter    filter.IFilter
 	rotator   IRotator
 
 	bufChan      chan []byte

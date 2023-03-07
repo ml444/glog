@@ -1,7 +1,7 @@
 package config
 
 import (
-	"github.com/ml444/glog/inter"
+	"github.com/ml444/glog/filter"
 	"github.com/ml444/glog/level"
 	"github.com/ml444/glog/message"
 	"time"
@@ -96,7 +96,7 @@ type BaseHandlerConfig struct {
 	Syslog      SyslogHandlerConfig
 
 	Formatter FormatterConfig
-	Filter    inter.IFilter
+	Filter    filter.IFilter
 }
 
 type FileHandlerConfig struct {
@@ -118,7 +118,7 @@ type FileHandlerConfig struct {
 }
 
 type StreamHandlerConfig struct {
-	Streamer inter.IStreamer
+	Streamer filter.IStreamer
 }
 type SyslogHandlerConfig struct {
 	Network  string

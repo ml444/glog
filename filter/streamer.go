@@ -1,4 +1,4 @@
-package inter
+package filter
 
 import "io"
 

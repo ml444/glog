@@ -4,17 +4,17 @@ import (
 	"errors"
 	"fmt"
 	"github.com/ml444/glog/config"
+	"github.com/ml444/glog/filter"
 	"github.com/ml444/glog/formatter"
-	"github.com/ml444/glog/inter"
 	"github.com/ml444/glog/message"
 )
 
 const terminator = '\n'
 
 type StreamHandler struct {
-	stream    inter.IStreamer
+	stream    filter.IStreamer
 	formatter formatter.IFormatter
-	filter    inter.IFilter
+	filter    filter.IFilter
 }
 
 func NewStreamHandler(handlerCfg *config.BaseHandlerConfig) (*StreamHandler, error) {
@@ -76,6 +76,6 @@ func (h *StreamHandler) Close() error {
 //	   	   self.release()
 //	*/
 //}
-//func (h *StreamHandler) SetStream(stream inter.IStreamer) {
+//func (h *StreamHandler) SetStream(stream filter.IStreamer) {
 //	h.stream = stream
 //}

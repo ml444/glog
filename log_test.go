@@ -1,6 +1,7 @@
 package log
 
 import (
+	"fmt"
 	"testing"
 	"time"
 )
@@ -23,4 +24,17 @@ func TestLog(t *testing.T) {
 	time.Sleep(time.Second)
 	Exit()
 	t.Log("===> PASS!!!")
+}
+
+type AA struct {
+	s string
+}
+
+func (a AA) String() string {
+	return a.s
+}
+func TestName(t *testing.T) {
+	a := AA{s: "is"}
+	t.Log(fmt.Sprint("cml", 12, a, "a man"))
+	fmt.Println("cml", "is", "a man")
 }

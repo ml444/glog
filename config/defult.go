@@ -26,7 +26,7 @@ func NewDefaultConfig() *Config {
 		EngineType: EngineTypeChannel,
 
 		LoggerName:      defaultLogName,
-		LoggerLevel:     level.InfoLevel,
+		LoggerLevel:     level.PrintLevel,
 		LoggerCacheSize: 1024 * 64,
 
 		EnableReport:    false,

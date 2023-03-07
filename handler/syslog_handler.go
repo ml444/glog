@@ -4,7 +4,7 @@
 package handler
 
 import (
-	"github.com/ml444/glog/inter"
+	"github.com/ml444/glog/filter"
 	"log/syslog"
 
 	"github.com/ml444/glog/config"
@@ -22,7 +22,7 @@ type SyslogHandler struct {
 	tag      string
 
 	formatter formatter.IFormatter
-	filter    inter.IFilter
+	filter    filter.IFilter
 }
 
 func NewSyslogHandler(handlerCfg *config.BaseHandlerConfig) (*SyslogHandler, error) {

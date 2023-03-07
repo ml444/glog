@@ -4,14 +4,14 @@ import (
 	"os"
 
 	"github.com/ml444/glog/config"
+	"github.com/ml444/glog/filter"
 	"github.com/ml444/glog/formatter"
-	"github.com/ml444/glog/inter"
 	"github.com/ml444/glog/message"
 )
 
 type DefaultHandler struct {
 	formatter formatter.IFormatter
-	filter    inter.IFilter
+	filter    filter.IFilter
 }
 
 func NewDefaultHandler(handlerCfg *config.BaseHandlerConfig) (*DefaultHandler, error) {

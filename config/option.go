@@ -1,7 +1,7 @@
 package config
 
 import (
-	"github.com/ml444/glog/inter"
+	"github.com/ml444/glog/filter"
 	"github.com/ml444/glog/level"
 )
 
@@ -133,13 +133,13 @@ func SetFileHandlerConfig2Report(fileCfg FileHandlerConfig) OptionFunc {
 	}
 }
 
-func SetStreamer2Logger(streamer inter.IStreamer) OptionFunc {
+func SetStreamer2Logger(streamer filter.IStreamer) OptionFunc {
 	return func(cfg *Config) {
 		cfg.Handler.LogHandlerConfig.HandlerType = HandlerTypeStream
 		cfg.Handler.LogHandlerConfig.Stream.Streamer = streamer
 	}
 }
-func SetStreamer2Report(streamer inter.IStreamer) OptionFunc {
+func SetStreamer2Report(streamer filter.IStreamer) OptionFunc {
 	return func(cfg *Config) {
 		cfg.Handler.ReportHandlerConfig.HandlerType = HandlerTypeStream
 		cfg.Handler.ReportHandlerConfig.Stream.Streamer = streamer

@@ -8,8 +8,8 @@ import (
 	"os"
 
 	"github.com/ml444/glog/config"
+	"github.com/ml444/glog/filter"
 	"github.com/ml444/glog/formatter"
-	"github.com/ml444/glog/inter"
 	"github.com/ml444/glog/level"
 	"github.com/ml444/glog/message"
 )
@@ -18,7 +18,7 @@ type SyslogHandler struct {
 	Writer io.Writer
 
 	formatter formatter.IFormatter
-	filter    inter.IFilter
+	filter    filter.IFilter
 }
 
 func NewSyslogHandler(handlerCfg *config.BaseHandlerConfig) (*SyslogHandler, error) {
