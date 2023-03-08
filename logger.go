@@ -2,9 +2,11 @@ package log
 
 import (
 	"fmt"
-	"github.com/ml444/glog/util"
 	"runtime"
+	"strings"
 	"time"
+
+	"github.com/ml444/glog/util"
 
 	"github.com/ml444/glog/config"
 	"github.com/ml444/glog/engine"
@@ -159,6 +161,8 @@ func (l *Logger) after(lvl level.LogLevel) {
 	}
 }
 func (l *Logger) printStack(callDepth int, lvl level.LogLevel) {
+	var buf = new(strings.Builder)
+	buf.WriteString("\n")
 	for ; ; callDepth++ {
 		pc, file, line, ok := runtime.Caller(callDepth)
 		if !ok {
@@ -168,8 +172,9 @@ func (l *Logger) printStack(callDepth int, lvl level.LogLevel) {
 		if name.Name() == "runtime.goexit" {
 			break
 		}
-		l.send(lvl, fmt.Sprintf("#STACK: %s %s:%d", name.Name(), file, line))
+		buf.WriteString(fmt.Sprintf("#STACK: %s %s:%d\n", name.Name(), file, line))
 	}
+	l.send(lvl, buf.String())
 }
 
 func (l *Logger) EnabledLevel(lvl level.LogLevel) bool {
