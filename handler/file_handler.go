@@ -2,14 +2,15 @@ package handler
 
 import (
 	"errors"
-	"github.com/ml444/glog/config"
-	"github.com/ml444/glog/filter"
-	"github.com/ml444/glog/formatter"
-	"github.com/ml444/glog/message"
 	"io"
 	"os"
 	"sync"
 	"time"
+
+	"github.com/ml444/glog/config"
+	"github.com/ml444/glog/filter"
+	"github.com/ml444/glog/formatter"
+	"github.com/ml444/glog/message"
 )
 
 type FileHandler struct {
@@ -28,7 +29,7 @@ type FileHandler struct {
 func NewFileHandler(handlerCfg *config.BaseHandlerConfig) (*FileHandler, error) {
 	// Redirects the standard error output to the specified file,
 	// in order to preserve the panic information during panic.
-	rewriteStderr(handlerCfg.File.FileDir, config.GlobalConfig.LoggerName)
+	//rewriteStderr(handlerCfg.File.FileDir, config.GlobalConfig.LoggerName)
 
 	rotator, err := GetRotator4Config(&handlerCfg.File)
 	if err != nil {
