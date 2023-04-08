@@ -82,6 +82,7 @@ func NewLogger(cfg *config.Config) (*Logger, error) {
 		Name:           cfg.LoggerName,
 		Level:          cfg.LoggerLevel,
 		ExitFunc:       cfg.ExitFunc,
+		ExitOnFatal:	cfg.ExitOnFatal,
 		engine:         engine.NewEngine(cfg.EngineType),
 		IsRecordCaller: cfg.IsRecordCaller,
 		TradeIDFunc:    cfg.TradeIDFunc,

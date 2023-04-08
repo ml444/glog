@@ -20,6 +20,9 @@ func SetLoggerName(name string) OptionFunc {
 	}
 }
 
+func EnableExitOnFatal() OptionFunc {
+	return func(cfg *Config) { cfg.ExitOnFatal = true }
+}
 func SetLevel2Logger(lvl level.LogLevel) OptionFunc {
 	return func(cfg *Config) { cfg.LoggerLevel = lvl }
 }
