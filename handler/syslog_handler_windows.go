@@ -4,13 +4,13 @@
 package handler
 
 import (
+	"fmt"
 	"io"
 	"os"
 
 	"github.com/ml444/glog/config"
 	"github.com/ml444/glog/filter"
 	"github.com/ml444/glog/formatter"
-	"github.com/ml444/glog/level"
 	"github.com/ml444/glog/message"
 )
 
@@ -38,31 +38,17 @@ func (h *SyslogHandler) format(record *message.Entry) ([]byte, error) {
 }
 
 func (h *SyslogHandler) Emit(e *message.Entry) error {
-
 	msgByte, err := h.format(e)
 	if err != nil {
 		return err
 	}
 
 	msg := string(msgByte)
-
-	switch e.Level {
-	case level.PanicLevel:
-		return fmt.Panic(msg)
-	case level.FatalLevel:
-		return fmt.Fatalf(msg)
-	case level.ErrorLevel:
-		return fmt.Fatal(msg)
-	case level.WarnLevel:
-		return fmt.Println(msg)
-	case level.InfoLevel:
-		return fmt.Println(msg)
-	case level.DebugLevel:
-		return h.Writer.Write(msg)
-	default:
-		return nil
+	v := fmt.Sprintf("%s [%s] %s", e.Time.Format(config.DefaultTimestampFormat), e.Level.ShortString(), msg)
+	_, err := h.Writer.Write(msg)
+	if err != nil {
+		return err
 	}
-
 }
 
 func (h *SyslogHandler) Close() error {
