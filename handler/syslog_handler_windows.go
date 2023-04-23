@@ -45,7 +45,7 @@ func (h *SyslogHandler) Emit(e *message.Entry) error {
 
 	msg := string(msgByte)
 	v := fmt.Sprintf("%s [%s] %s", e.Time.Format(config.DefaultTimestampFormat), e.Level.ShortString(), msg)
-	_, err := h.Writer.Write(msg)
+	_, err := h.Writer.Write(v)
 	if err != nil {
 		return err
 	}
