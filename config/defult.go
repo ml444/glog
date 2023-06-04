@@ -23,7 +23,6 @@ func NewDefaultConfig() *Config {
 	defaultLogName := l[len(l)-1]
 
 	return &Config{
-		EngineType: EngineTypeChannel,
 
 		LoggerName:      defaultLogName,
 		LoggerLevel:     level.PrintLevel,

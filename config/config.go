@@ -1,16 +1,11 @@
 package config
 
 import (
+	"github.com/ml444/glog/engine"
 	"github.com/ml444/glog/filter"
 	"github.com/ml444/glog/level"
 	"github.com/ml444/glog/message"
 	"time"
-)
-
-type EngineType int
-
-const (
-	EngineTypeChannel EngineType = 1
 )
 
 type HandlerType int
@@ -73,7 +68,7 @@ type Config struct {
 	ReportLevel     level.LogLevel
 	ReportCacheSize int
 	LoggerCacheSize int
-	EngineType      EngineType
+	Engine          engine.IEngine
 
 	LoggerName string
 

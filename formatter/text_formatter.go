@@ -43,6 +43,8 @@ func Color(l level.LogLevel) string {
 	switch l {
 	case level.DebugLevel:
 		return blue
+	case level.PrintLevel:
+		return cyan
 	case level.InfoLevel:
 		return green
 	case level.WarnLevel:

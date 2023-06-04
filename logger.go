@@ -78,12 +78,15 @@ func NewLogger(cfg *config.Config) (*Logger, error) {
 	if cfg == nil {
 		cfg = config.NewDefaultConfig()
 	}
+	if cfg.Engine == nil {
+		cfg.Engine = engine.NewChannelEngine()
+	}
 	l := Logger{
 		Name:           cfg.LoggerName,
 		Level:          cfg.LoggerLevel,
 		ExitFunc:       cfg.ExitFunc,
-		ExitOnFatal:	cfg.ExitOnFatal,
-		engine:         engine.NewEngine(cfg.EngineType),
+		ExitOnFatal:    cfg.ExitOnFatal,
+		engine:         cfg.Engine,
 		IsRecordCaller: cfg.IsRecordCaller,
 		TradeIDFunc:    cfg.TradeIDFunc,
 	}
