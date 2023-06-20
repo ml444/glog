@@ -1,9 +1,10 @@
 package config
 
 import (
-	"github.com/ml444/glog/level"
 	"os"
 	"strings"
+
+	"github.com/ml444/glog/level"
 )
 
 const (
@@ -20,11 +21,11 @@ func NewDefaultConfig() *Config {
 	defaultReportLogDir := curDir
 
 	l := strings.Split(curDir, string(os.PathSeparator))
-	defaultLogName := l[len(l)-1]
+	defaultLogName := ""
 
 	return &Config{
 
-		LoggerName:      defaultLogName,
+		LoggerName:      l[len(l)-1],
 		LoggerLevel:     level.PrintLevel,
 		LoggerCacheSize: 1024 * 64,
 
@@ -41,7 +42,7 @@ func NewDefaultConfig() *Config {
 				File: FileHandlerConfig{
 					RotatorType:       FileRotatorTypeTimeAndSize,
 					FileDir:           defaultLogDir,
-					FileName:          defaultLogName,
+					FileName:          "",
 					MaxFileSize:       defaultMaxFileSize * 4,
 					When:              FileRotatorWhenHour,
 					BackupCount:       24,

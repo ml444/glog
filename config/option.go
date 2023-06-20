@@ -7,10 +7,12 @@ import (
 
 type OptionFunc func(config *Config)
 
+// SetLoggerName Set the name of the logger, the default is the name of the program.
 func SetLoggerName(name string) OptionFunc {
 	return func(cfg *Config) {
 		oldLoggerName := cfg.LoggerName
 		cfg.LoggerName = name
+		// If the file name is the same as the old logger name(default name), then the file name is also changed.
 		if cfg.Handler.LogHandlerConfig.File.FileName == oldLoggerName {
 			cfg.Handler.LogHandlerConfig.File.FileName = name
 		}
