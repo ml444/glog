@@ -53,7 +53,7 @@ func NewDefaultConfig() *Config {
 					MultiProcessWrite: false,
 
 					ErrCallback: func(err error) {
-						println("===> logger err: ", err)
+						println("===> logger err: ", err.Error())
 					},
 				},
 				Formatter: FormatterConfig{
@@ -78,7 +78,7 @@ func NewDefaultConfig() *Config {
 					FileSuffix:  "report",
 
 					ErrCallback: func(err error) {
-						println("===> report err: ", err)
+						println("===> report err: ", err.Error())
 					},
 				},
 				Formatter: FormatterConfig{
