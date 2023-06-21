@@ -3,8 +3,6 @@ package handler
 import (
 	"errors"
 	"fmt"
-	"github.com/ml444/glog/config"
-	"github.com/ml444/glog/util"
 	"io"
 	"os"
 	"path/filepath"
@@ -12,6 +10,9 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/ml444/glog/config"
+	"github.com/ml444/glog/util"
 )
 
 type IRotator interface {
@@ -484,8 +485,8 @@ func IsFileExist(name string) bool {
 	return err == nil || os.IsExist(err)
 }
 func open(filepath string) (*os.File, error) {
-	//old := util.UMask(0)
-	//defer util.UMask(old)
+	old := util.UMask(0)
+	defer util.UMask(old)
 	return os.OpenFile(filepath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0666)
 }
 
