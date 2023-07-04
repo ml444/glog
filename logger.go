@@ -31,6 +31,9 @@ type StdLogger interface {
 }
 
 type ILogger interface {
+	GetLoggerName() string
+	SetLoggerName(string)
+
 	GetLevel() level.LogLevel
 	SetLevel(level.LogLevel)
 	EnabledLevel(lvl level.LogLevel) bool
@@ -179,6 +182,14 @@ func (l *Logger) printStack(callDepth int, lvl level.LogLevel) {
 		buf.WriteString(fmt.Sprintf("#STACK: %s %s:%d\n", name.Name(), file, line))
 	}
 	l.send(lvl, buf.String())
+}
+
+func (l *Logger) GetLoggerName() string {
+	return l.Name
+}
+
+func (l *Logger) SetLoggerName(name string) {
+	l.Name = name
 }
 
 func (l *Logger) EnabledLevel(lvl level.LogLevel) bool {
