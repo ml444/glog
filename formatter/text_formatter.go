@@ -157,7 +157,11 @@ func (f *TextFormatter) needsQuoting(text string) bool {
 }
 
 func (f *TextFormatter) writeLogName(b *bytes.Buffer, entry *message.Entry) {
-	b.WriteString(entry.LogName)
+	if f.DisableColors {
+		b.WriteString(entry.LogName)
+	} else {
+		b.WriteString(green + entry.LogName + colorEnd)
+	}
 }
 func (f *TextFormatter) writePid(b *bytes.Buffer, _ *message.Entry) {
 	b.WriteString(pidStr)
@@ -184,21 +188,17 @@ func (f *TextFormatter) writeTradeId(b *bytes.Buffer, entry *message.Entry) {
 	}
 }
 func (f *TextFormatter) writeLogLevel(b *bytes.Buffer, entry *message.Entry) {
-	if !f.DisableColors {
-		b.WriteString(Color(entry.Level))
-	}
-	b.WriteString(entry.Level.ShortString())
-	if !f.DisableColors {
-		b.WriteString(colorEnd)
+	if f.DisableColors {
+		b.WriteString(entry.Level.ShortString())
+	} else {
+		b.WriteString(Color(entry.Level) + entry.Level.ShortString() + colorEnd)
 	}
 }
 func (f *TextFormatter) writeLogLevelNo(b *bytes.Buffer, entry *message.Entry) {
-	if !f.DisableColors {
-		b.WriteString(Color(entry.Level))
-	}
-	b.WriteString(strconv.FormatUint(uint64(entry.Level), 10))
-	if !f.DisableColors {
-		b.WriteString(colorEnd)
+	if f.DisableColors {
+		b.WriteString(strconv.FormatUint(uint64(entry.Level), 10))
+	} else {
+		b.WriteString(Color(entry.Level) + strconv.FormatUint(uint64(entry.Level), 10) + colorEnd)
 	}
 }
 func (f *TextFormatter) writeFilepath(b *bytes.Buffer, entry *message.Entry) {
@@ -211,18 +211,12 @@ func (f *TextFormatter) writeFuncName(b *bytes.Buffer, entry *message.Entry) {
 	b.WriteString(entry.CallerName)
 }
 func (f *TextFormatter) writeCaller(b *bytes.Buffer, entry *message.Entry) {
+	s := path.Join(entry.FilePath, path.Base(entry.FileName)) + ":" + strconv.FormatInt(int64(entry.CallerLine), 10) + ":" + entry.CallerName
 	if !f.DisableColors {
-		b.WriteString(blue)
+		b.WriteString(s)
+	} else {
+		b.WriteString(blue + s + colorEnd)
 	}
-	b.WriteString(path.Join(entry.FilePath, path.Base(entry.FileName)))
-	b.WriteString(":")
-	b.WriteString(strconv.FormatInt(int64(entry.CallerLine), 10))
-	b.WriteString(":")
-	b.WriteString(entry.CallerName)
-	if !f.DisableColors {
-		b.WriteString(colorEnd)
-	}
-	//b.WriteString(" ")
 }
 func (f *TextFormatter) writeMessage(b *bytes.Buffer, entry *message.Entry) {
 	stringVal, ok := entry.Message.(string)
