@@ -396,8 +396,7 @@ func (r *TimeAndSizeRotator) DoRollover() (*os.File, error) {
 		if r.filename != "" {
 			parties = append(parties, r.filename)
 		}
-		parties = append(parties, r.rolloverTimeSuffix)
-		parties = append(parties, r.cfg.FileSuffix)
+		parties = append(parties, r.cfg.FileSuffix, r.rolloverTimeSuffix)
 		dfn := filepath.Join(r.cfg.FileDir, strings.Join(parties, "."))
 
 		if IsFileExist(dfn) {
