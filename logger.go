@@ -67,6 +67,7 @@ type Logger struct {
 	TradeIDFunc    func(entry *message.Entry) string
 	ExitFunc       func(code int) // Function to exit the application, defaults to `os.Exit()`
 	ExitOnFatal    bool
+	ExitOnPanic    bool
 	IsRecordCaller bool
 	isStop         bool
 }
@@ -89,6 +90,7 @@ func NewLogger(cfg *config.Config) (*Logger, error) {
 		Level:          cfg.LoggerLevel,
 		ExitFunc:       cfg.ExitFunc,
 		ExitOnFatal:    cfg.ExitOnFatal,
+		ExitOnPanic:    cfg.ExitOnPanic,
 		engine:         engine.NewChannelEngine(),
 		IsRecordCaller: cfg.IsRecordCaller,
 		TradeIDFunc:    cfg.TradeIDFunc,
@@ -159,7 +161,7 @@ func (l *Logger) after(lvl level.LogLevel) {
 	if lvl == level.FatalLevel || lvl == level.PanicLevel {
 		l.printStack(2, lvl)
 	}
-	if (lvl == level.PanicLevel) || (l.ExitOnFatal && lvl == level.FatalLevel) {
+	if (l.ExitOnPanic && lvl == level.PanicLevel) || (l.ExitOnFatal && lvl == level.FatalLevel) {
 		err := l.Stop()
 		if err != nil {
 			println(err)

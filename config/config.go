@@ -61,6 +61,7 @@ const (
 
 type Config struct {
 	ExitOnFatal    bool
+	ExitOnPanic    bool
 	IsRecordCaller bool
 	EnableReport   bool
 
@@ -68,7 +69,6 @@ type Config struct {
 	ReportLevel     level.LogLevel
 	ReportCacheSize int
 	LoggerCacheSize int
-	//Engine          engine.IEngine
 
 	LoggerName string
 
