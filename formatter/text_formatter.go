@@ -160,7 +160,7 @@ func (f *TextFormatter) writeLogName(b *bytes.Buffer, entry *message.Entry) {
 	if f.DisableColors {
 		b.WriteString(entry.LogName)
 	} else {
-		b.WriteString(green + entry.LogName + colorEnd)
+		b.WriteString(purple + entry.LogName + colorEnd)
 	}
 }
 func (f *TextFormatter) writePid(b *bytes.Buffer, _ *message.Entry) {
