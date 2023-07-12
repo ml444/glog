@@ -212,7 +212,7 @@ func (f *TextFormatter) writeFuncName(b *bytes.Buffer, entry *message.Entry) {
 }
 func (f *TextFormatter) writeCaller(b *bytes.Buffer, entry *message.Entry) {
 	s := path.Join(entry.FilePath, path.Base(entry.FileName)) + ":" + strconv.FormatInt(int64(entry.CallerLine), 10) + ":" + entry.CallerName
-	if !f.DisableColors {
+	if f.DisableColors {
 		b.WriteString(s)
 	} else {
 		b.WriteString(blue + s + colorEnd)
