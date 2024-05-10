@@ -5,7 +5,6 @@ import (
 )
 
 type IEngine interface {
-	Init() error
 	Start() error
 	Stop() error
 	Send(event *message.Entry)

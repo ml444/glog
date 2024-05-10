@@ -4,32 +4,70 @@ import (
 	"errors"
 	"io"
 	"os"
-	"sync"
 	"time"
 
-	"github.com/ml444/glog/config"
 	"github.com/ml444/glog/filter"
 	"github.com/ml444/glog/formatter"
 	"github.com/ml444/glog/message"
 )
+
+type RotatorType int
+
+const (
+	FileRotatorTypeTime        RotatorType = 1
+	FileRotatorTypeSize        RotatorType = 2
+	FileRotatorTypeTimeAndSize RotatorType = 3
+)
+
+const (
+	FileRotatorSuffixFmt1 = "20060102150405"
+	FileRotatorSuffixFmt2 = "2006-01-02T15-04-05"
+	FileRotatorSuffixFmt3 = "2006-01-02_15-04-05"
+)
+
+const (
+	FileRotatorReMatch1 = "^\\d{14}(\\.\\w+)?$"
+	FileRotatorReMatch2 = "^\\d{4}-\\d{2}-\\d{2}T\\d{2}-\\d{2}-\\d{2}(\\.\\w+)?$"
+	FileRotatorReMatch3 = "^\\d{4}-\\d{2}-\\d{2}_\\d{2}-\\d{2}-\\d{2}(\\.\\w+)?$"
+)
+
+type FileHandlerConfig struct {
+	FileDir       string
+	FileName      string
+	MaxFileSize   int64
+	BackupCount   int
+	BulkWriteSize int
+
+	RotatorType RotatorType
+	//When          RotatorWhenType // used in TimeRotator and TimeAndSizeRotator
+	Interval int64 // unit: second. used in TimeRotator and TimeAndSizeRotator.
+	//IntervalStep  int64
+	TimeSuffixFmt string
+	ReMatch       string
+	FileSuffix    string
+
+	MultiProcessWrite bool
+
+	ErrCallback func(buf []byte, err error)
+}
 
 type FileHandler struct {
 	formatter formatter.IFormatter
 	filter    filter.IFilter
 	rotator   IRotator
 
-	bufChan      chan []byte
-	flushChan    chan bool
-	workerDone   bool
-	workerDoneMu sync.Mutex
+	bulkWriteSize int
+	bufChan       chan []byte
+	doneChan      chan bool
+	done          bool
 
-	ErrorCallback func(err error)
+	ErrorCallback func(buf []byte, err error)
 }
 
-func NewFileHandler(handlerCfg *config.BaseHandlerConfig) (*FileHandler, error) {
+func NewFileHandler(handlerCfg *HandlerConfig) (*FileHandler, error) {
 	// Redirects the standard error output to the specified file,
 	// in order to preserve the panic information during panic.
-	//rewriteStderr(handlerCfg.File.FileDir, config.GlobalConfig.LoggerName)
+	// rewriteStderr(handlerCfg.File.FileDir, config.GlobalConfig.LoggerName)
 
 	rotator, err := GetRotator4Config(&handlerCfg.File)
 	if err != nil {
@@ -39,6 +77,7 @@ func NewFileHandler(handlerCfg *config.BaseHandlerConfig) (*FileHandler, error) 
 		formatter:     formatter.GetNewFormatter(handlerCfg.Formatter),
 		filter:        handlerCfg.Filter,
 		rotator:       rotator,
+		bulkWriteSize: handlerCfg.File.BulkWriteSize,
 		ErrorCallback: handlerCfg.File.ErrCallback,
 	}
 	h.init()
@@ -47,9 +86,36 @@ func NewFileHandler(handlerCfg *config.BaseHandlerConfig) (*FileHandler, error) 
 
 func (h *FileHandler) init() {
 	h.bufChan = make(chan []byte, 1024)
-	h.flushChan = make(chan bool, 100)
+	h.doneChan = make(chan bool, 100)
 	go h.flushWorker()
-	return
+}
+
+func (h *FileHandler) flushWorker() {
+	for {
+		select {
+		case b := <-h.bufChan:
+			buf := h.BulkFill(b)
+			err := h.realWrite(buf)
+			if err != nil && h.ErrorCallback != nil {
+				h.ErrorCallback(buf, err)
+			}
+		case <-h.doneChan:
+			for {
+				select {
+				case b := <-h.bufChan: // Flush channel data into storage
+					buf := h.BulkFill(b)
+					err := h.realWrite(buf)
+					if err != nil && h.ErrorCallback != nil {
+						h.ErrorCallback(buf, err)
+					}
+				default:
+					h.done = true
+					return
+				}
+			}
+
+		}
+	}
 }
 
 func (h *FileHandler) realWrite(buf []byte) error {
@@ -73,7 +139,8 @@ func (h *FileHandler) realWrite(buf []byte) error {
 	if err != nil {
 		if err == io.ErrShortWrite {
 			for n < len(buf) {
-				x, err := file.Write(buf[n:])
+				var x int
+				x, err = file.Write(buf[n:])
 				if err != nil {
 					return err
 				}
@@ -85,72 +152,26 @@ func (h *FileHandler) realWrite(buf []byte) error {
 	return nil
 }
 
-func (h *FileHandler) flushWorker() {
+func (h *FileHandler) BulkFill(buf []byte) []byte {
+	total := len(buf)
 	for {
 		select {
-		case buf := <-h.bufChan:
-			var bb []byte
-			var total int
-			for {
-				select {
-				case more := <-h.bufChan:
-					if len(bb) == 0 {
-						bb = append(bb, buf...)
-						total += len(buf)
-					}
-					bb = append(bb, more...)
-					total += len(more)
-					if total >= 1024*1024 {
-						goto OUT
-					}
-				default:
-					goto OUT
-				}
+		case more := <-h.bufChan:
+			buf = append(buf, more...)
+			total += len(more)
+			if total >= h.bulkWriteSize {
+				return buf
 			}
-		OUT:
-			if len(bb) == 0 {
-				err := h.realWrite(buf)
-				if err != nil && h.ErrorCallback != nil {
-					h.ErrorCallback(err)
-				}
-			} else {
-				err := h.realWrite(bb)
-				if err != nil && h.ErrorCallback != nil {
-					h.ErrorCallback(err)
-				}
-			}
-		case <-h.flushChan:
-			for {
-				select {
-				case buf := <-h.bufChan:
-					err := h.realWrite(buf)
-					if err != nil && h.ErrorCallback != nil {
-						h.ErrorCallback(err)
-					}
-				default:
-					h.workerDoneMu.Lock()
-					h.workerDone = true
-					h.workerDoneMu.Unlock()
-					return
-				}
-			}
-
+		default:
+			return buf
 		}
 	}
-}
-
-func (h *FileHandler) getWorkerDone() bool {
-	h.workerDoneMu.Lock()
-	res := h.workerDone
-	h.workerDoneMu.Unlock()
-	return res
 }
 
 func (h *FileHandler) Emit(entry *message.Entry) error {
 	if h.filter != nil {
 		if ok := h.filter.Filter(entry); !ok {
-			return nil
-			//return errors.New(fmt.Sprintf("Filter out this msg: %v", entry))
+			return filter.ErrFilterOut
 		}
 	}
 
@@ -163,7 +184,7 @@ func (h *FileHandler) Emit(entry *message.Entry) error {
 		return err
 	}
 
-	//h.bufChan <- msgByte
+	// h.bufChan <- msgByte
 	select {
 	case h.bufChan <- msgByte:
 	default:
@@ -174,14 +195,14 @@ func (h *FileHandler) Emit(entry *message.Entry) error {
 
 func (h *FileHandler) Close() error {
 	select {
-	case h.flushChan <- true: // send
-		//default: // channel full
+	case h.doneChan <- true: // send
+		// default: // channel full
 	}
 	for i := 0; i < 100; i++ {
-		if h.getWorkerDone() {
+		if h.done {
 			break
 		}
-		time.Sleep(50 * time.Microsecond)
+		<-time.After(1 * time.Millisecond)
 	}
 	return h.rotator.Close()
 }

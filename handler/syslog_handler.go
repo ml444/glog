@@ -3,17 +3,17 @@
 package handler
 
 import (
-	"github.com/ml444/glog/filter"
 	"log/syslog"
 
-	"github.com/ml444/glog/config"
+	"github.com/ml444/glog/filter"
+
 	"github.com/ml444/glog/formatter"
 	"github.com/ml444/glog/level"
 	"github.com/ml444/glog/message"
 )
 
 type SyslogHandler struct {
-	//BaseHandler
+	// BaseHandler
 	Writer   *syslog.Writer
 	network  string
 	raddr    string
@@ -24,7 +24,7 @@ type SyslogHandler struct {
 	filter    filter.IFilter
 }
 
-func NewSyslogHandler(handlerCfg *config.BaseHandlerConfig) (*SyslogHandler, error) {
+func NewSyslogHandler(handlerCfg *HandlerConfig) (*SyslogHandler, error) {
 	cfg := handlerCfg.Syslog
 	h := &SyslogHandler{
 		network:   cfg.Network,
@@ -58,7 +58,11 @@ func (h *SyslogHandler) Init() error {
 }
 
 func (h *SyslogHandler) Emit(e *message.Entry) error {
-
+	if h.filter != nil {
+		if ok := h.filter.Filter(e); !ok {
+			return filter.ErrFilterOut
+		}
+	}
 	msgByte, err := h.format(e)
 	if err != nil {
 		return err
@@ -82,7 +86,6 @@ func (h *SyslogHandler) Emit(e *message.Entry) error {
 	default:
 		return nil
 	}
-
 }
 
 func (h *SyslogHandler) Close() error {

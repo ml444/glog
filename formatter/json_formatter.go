@@ -1,61 +1,39 @@
 package formatter
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
-	"github.com/ml444/glog/config"
+
 	"github.com/ml444/glog/message"
 )
 
 type JSONFormatter struct {
-	timestampFormat   string
-	disableTimestamp  bool
+	timestampFormat string
+	// disableTimestamp  bool
 	disableHTMLEscape bool
 	prettyPrint       bool
 }
 
-func NewJSONFormatter(formatterCfg config.FormatterConfig) *JSONFormatter {
-	jsonCfg := formatterCfg.Json
+func NewJSONFormatter(formatterCfg FormatterConfig) *JSONFormatter {
 	return &JSONFormatter{
 		timestampFormat:   formatterCfg.TimestampFormat,
-		disableTimestamp:  jsonCfg.DisableTimestamp,
-		disableHTMLEscape: jsonCfg.DisableHTMLEscape,
-		prettyPrint:       jsonCfg.PrettyPrint,
+		disableHTMLEscape: formatterCfg.DisableHTMLEscape,
+		prettyPrint:       formatterCfg.PrettyPrint,
+		// disableTimestamp:  jsonCfg.DisableTimestamp,
 	}
 }
 
-func (f *JSONFormatter) Format(event *message.Entry) ([]byte, error) {
-	record := f.FillRecord(event)
-	return record.Bytes(f.disableHTMLEscape, f.prettyPrint)
-}
-
-func (f *JSONFormatter) FillRecord(entry *message.Entry) *message.Record {
-	if entry.Message == nil {
-		panic("Entry.Message must be non-nil.")
+func (f *JSONFormatter) Format(entry *message.Entry) ([]byte, error) {
+	record := entry.FillRecord(f.timestampFormat)
+	b := &bytes.Buffer{}
+	encoder := json.NewEncoder(b)
+	encoder.SetEscapeHTML(!f.disableHTMLEscape)
+	if f.prettyPrint {
+		encoder.SetIndent("", "  ")
 	}
-
-	record := &message.Record{
-		Level:   entry.Level.String(),
-		Message: entry.Message,
-		ErrMsg:  entry.ErrMsg,
+	if err := encoder.Encode(record); err != nil {
+		return nil, fmt.Errorf("failed to encoding record to JSON: %w", err)
 	}
-
-	record.Datetime = entry.Time.Format(f.timestampFormat)
-	record.Timestamp = entry.Time.UnixMilli()
-
-	if entry.IsRecordCaller() {
-		if entry.Caller != nil {
-			funcVal := entry.Caller.Function
-			fileVal := fmt.Sprintf("%s:%d", entry.Caller.File, entry.Caller.Line)
-			if funcVal != "" {
-				record.CallerName = funcVal
-			}
-			if fileVal != "" {
-				record.FileName = fileVal
-			}
-		} else {
-			record.CallerName = entry.CallerName
-			record.FileName = fmt.Sprintf("%s:%d", entry.FileName, entry.CallerLine)
-		}
-	}
-	return record
+	return b.Bytes(), nil
 }
