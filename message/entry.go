@@ -1,27 +1,27 @@
 package message
 
 import (
-	"github.com/ml444/glog/level"
+	"fmt"
 	"reflect"
 	"runtime"
 	"time"
+
+	"github.com/ml444/glog/level"
 )
 
 type Entry struct {
 	LogName    string
 	FileName   string
 	FilePath   string
-	TradeId    string
+	TraceID    string
 	CallerName string
+	ErrMsg     string
+	Message    string
+	RoutineID  int64
 	CallerLine int
-	RoutineId  int64
-
-	Level  level.LogLevel
-	Time   time.Time
-	Caller *runtime.Frame
-
-	Message interface{}
-	ErrMsg  string
+	Time       time.Time
+	Level      level.LogLevel
+	Caller     *runtime.Frame
 }
 
 func (e Entry) IsRecordCaller() bool {
@@ -61,4 +61,32 @@ func GetEntryValues(entry *Entry) []interface{} {
 		values = append(values, v)
 	}
 	return values
+}
+
+func (e *Entry) FillRecord(timestampFormat string) *Record {
+	record := &Record{
+		Level:   e.Level.String(),
+		Message: e.Message,
+		ErrMsg:  e.ErrMsg,
+	}
+
+	record.Datetime = e.Time.Format(timestampFormat)
+	record.Timestamp = e.Time.UnixMilli()
+
+	if e.IsRecordCaller() {
+		if e.Caller != nil {
+			funcVal := e.Caller.Function
+			fileVal := fmt.Sprintf("%s:%d", e.Caller.File, e.Caller.Line)
+			if funcVal != "" {
+				record.CallerName = funcVal
+			}
+			if fileVal != "" {
+				record.FileName = fileVal
+			}
+		} else {
+			record.CallerName = e.CallerName
+			record.FileName = fmt.Sprintf("%s:%d", e.FileName, e.CallerLine)
+		}
+	}
+	return record
 }

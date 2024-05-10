@@ -1,11 +1,18 @@
 package log
 
 import (
+	"os"
+	"os/signal"
+	"syscall"
+
+	gomonkey "github.com/agiledragon/gomonkey/v2"
 	"github.com/ml444/glog/config"
 )
 
-var logger ILogger
-var Config = config.GlobalConfig
+var (
+	logger ILogger
+	Config = config.NewDefaultConfig()
+)
 
 func init() {
 	if logger != nil {
@@ -15,7 +22,18 @@ func init() {
 	logger, err = NewLogger(Config)
 	if err != nil {
 		println(err)
+		return
 	}
+	{
+		sigCh := make(chan os.Signal, 1)
+		signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+		go func() {
+			s := <-sigCh
+			println("==> sign exit:", s.String())
+			Exit()
+		}()
+	}
+	gomonkey.ApplyFunc(os.Exit, ExitHook)
 }
 
 func InitLog(opts ...config.OptionFunc) error {
@@ -61,5 +79,8 @@ func Exit() {
 			return
 		}
 	}
-	return
+}
+
+func ExitHook(code int) {
+	Exit()
 }

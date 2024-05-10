@@ -3,7 +3,8 @@ package handler
 import (
 	"errors"
 	"fmt"
-	"github.com/ml444/glog/config"
+	"io"
+
 	"github.com/ml444/glog/filter"
 	"github.com/ml444/glog/formatter"
 	"github.com/ml444/glog/message"
@@ -11,13 +12,18 @@ import (
 
 const terminator = '\n'
 
+type IStreamer interface {
+	io.Writer
+	Close()
+}
+
 type StreamHandler struct {
-	stream    filter.IStreamer
+	stream    IStreamer
 	formatter formatter.IFormatter
 	filter    filter.IFilter
 }
 
-func NewStreamHandler(handlerCfg *config.BaseHandlerConfig) (*StreamHandler, error) {
+func NewStreamHandler(handlerCfg *HandlerConfig) (*StreamHandler, error) {
 	if handlerCfg.Stream.Streamer == nil {
 		return nil, errors.New("streamer is nil")
 	}
@@ -47,7 +53,7 @@ func (h *StreamHandler) emit(msg []byte) error {
 func (h *StreamHandler) Emit(record *message.Entry) error {
 	if h.filter != nil {
 		if ok := h.filter.Filter(record); !ok {
-			return errors.New(fmt.Sprintf("Filter out this msg: %v", record))
+			return fmt.Errorf("filter out this msg: %v", record)
 		}
 	}
 

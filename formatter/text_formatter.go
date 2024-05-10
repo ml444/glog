@@ -7,7 +7,6 @@ import (
 	"regexp"
 	"strconv"
 
-	"github.com/ml444/glog/config"
 	"github.com/ml444/glog/level"
 	"github.com/ml444/glog/message"
 	"github.com/ml444/glog/util"
@@ -58,7 +57,7 @@ type writeFunc func(b *bytes.Buffer, entry *message.Entry)
 
 // TextFormatter formats logs into text
 type TextFormatter struct {
-	isCustomizedWritingOrder bool
+	isCustomizedWritePattern bool
 	EnableQuote              bool
 	EnableQuoteEmptyFields   bool
 	DisableColors            bool
@@ -70,20 +69,17 @@ type TextFormatter struct {
 	writeFuncList            []writeFunc
 }
 
-func NewTextFormatter(formatterCfg config.FormatterConfig) *TextFormatter {
-	var isCustom bool
-	textCfg := formatterCfg.Text
-	if textCfg.PatternStyle != "" {
-		isCustom = true
-	}
+func NewTextFormatter(formatterCfg FormatterConfig) *TextFormatter {
 	textFormatter := TextFormatter{
-		isCustomizedWritingOrder: isCustom,
-		TimestampFormat:          formatterCfg.TimestampFormat,
-		EnableQuote:              textCfg.EnableQuote,
-		EnableQuoteEmptyFields:   textCfg.EnableQuoteEmptyFields,
-		DisableColors:            textCfg.DisableColors,
+		TimestampFormat:        formatterCfg.TimestampFormat,
+		EnableQuote:            formatterCfg.EnableQuote,
+		EnableQuoteEmptyFields: formatterCfg.EnableQuoteEmptyFields,
+		DisableColors:          formatterCfg.DisableColors,
 	}
-	textFormatter.parseWriteFuncList(textCfg.PatternStyle)
+	if formatterCfg.PatternStyle != "" {
+		textFormatter.isCustomizedWritePattern = true
+		textFormatter.parseWriteFuncList(formatterCfg.PatternStyle)
+	}
 	return &textFormatter
 }
 
@@ -91,13 +87,13 @@ func NewTextFormatter(formatterCfg config.FormatterConfig) *TextFormatter {
 func (f *TextFormatter) Format(entry *message.Entry) ([]byte, error) {
 	if c := entry.Caller; c != nil {
 		entry.FileName = c.File
-		//entry.CallerName = c.Function
+		// entry.CallerName = c.Function
 		entry.CallerLine = c.Line
 		entry.FilePath, entry.CallerName = util.ParsePackageName(c.Function)
 	}
 	b := &bytes.Buffer{}
 	b.Grow(defaultBufferGrow)
-	if f.isCustomizedWritingOrder {
+	if f.isCustomizedWritePattern {
 		f.ColorRenderV2(b, entry)
 	} else {
 		f.ColorRender(b, entry)
@@ -112,7 +108,7 @@ func (f *TextFormatter) ColorRender(b *bytes.Buffer, entry *message.Entry) {
 	b.WriteByte('(')
 	f.writePid(b, entry)
 	b.WriteByte(',')
-	f.writeRoutineId(b, entry)
+	f.writeRoutineID(b, entry)
 	b.WriteByte(')')
 	b.WriteByte(' ')
 	f.writeDateTime(b, entry)
@@ -120,7 +116,7 @@ func (f *TextFormatter) ColorRender(b *bytes.Buffer, entry *message.Entry) {
 	f.writeTimeMs(b, entry)
 	b.WriteByte(' ')
 	b.WriteByte('<')
-	f.writeTradeId(b, entry)
+	f.writeTradeID(b, entry)
 	b.WriteByte('>')
 	b.WriteByte(' ')
 	f.writeLogLevel(b, entry)
@@ -163,30 +159,38 @@ func (f *TextFormatter) writeLogName(b *bytes.Buffer, entry *message.Entry) {
 		b.WriteString(purple + entry.LogName + colorEnd)
 	}
 }
+
 func (f *TextFormatter) writePid(b *bytes.Buffer, _ *message.Entry) {
 	b.WriteString(pidStr)
 }
+
 func (f *TextFormatter) writeIP(b *bytes.Buffer, _ *message.Entry) {
 	b.WriteString(localIP)
 }
+
 func (f *TextFormatter) writeHostName(b *bytes.Buffer, _ *message.Entry) {
 	b.WriteString(localHostname)
 }
-func (f *TextFormatter) writeRoutineId(b *bytes.Buffer, entry *message.Entry) {
-	b.WriteString(strconv.FormatInt(entry.RoutineId, 10))
+
+func (f *TextFormatter) writeRoutineID(b *bytes.Buffer, entry *message.Entry) {
+	b.WriteString(strconv.FormatInt(entry.RoutineID, 10))
 }
+
 func (f *TextFormatter) writeDateTime(b *bytes.Buffer, entry *message.Entry) {
 	b.WriteString(util.FormatDateTime(entry.Time))
-	//b.WriteString(fmt.Sprintf(".%05d ", entry.Time.Nanosecond()/100000))
+	// b.WriteString(fmt.Sprintf(".%05d ", entry.Time.Nanosecond()/100000))
 }
+
 func (f *TextFormatter) writeTimeMs(b *bytes.Buffer, entry *message.Entry) {
-	b.WriteString(fmt.Sprintf("%05d ", entry.Time.Nanosecond()/100000))
+	fmt.Fprintf(b, "%05d ", entry.Time.Nanosecond()/100000)
 }
-func (f *TextFormatter) writeTradeId(b *bytes.Buffer, entry *message.Entry) {
-	if entry.TradeId != "" {
-		b.WriteString(entry.TradeId)
+
+func (f *TextFormatter) writeTradeID(b *bytes.Buffer, entry *message.Entry) {
+	if entry.TraceID != "" {
+		b.WriteString(entry.TraceID)
 	}
 }
+
 func (f *TextFormatter) writeLogLevel(b *bytes.Buffer, entry *message.Entry) {
 	if f.DisableColors {
 		b.WriteString(entry.Level.ShortString())
@@ -194,6 +198,7 @@ func (f *TextFormatter) writeLogLevel(b *bytes.Buffer, entry *message.Entry) {
 		b.WriteString(Color(entry.Level) + entry.Level.ShortString() + colorEnd)
 	}
 }
+
 func (f *TextFormatter) writeLogLevelNo(b *bytes.Buffer, entry *message.Entry) {
 	if f.DisableColors {
 		b.WriteString(strconv.FormatUint(uint64(entry.Level), 10))
@@ -201,16 +206,24 @@ func (f *TextFormatter) writeLogLevelNo(b *bytes.Buffer, entry *message.Entry) {
 		b.WriteString(Color(entry.Level) + strconv.FormatUint(uint64(entry.Level), 10) + colorEnd)
 	}
 }
+
 func (f *TextFormatter) writeFilepath(b *bytes.Buffer, entry *message.Entry) {
-	b.WriteString(path.Join(entry.FilePath, path.Base(entry.FileName)))
+	b.WriteString(entry.FilePath)
 }
+
+func (f *TextFormatter) writeFileName(b *bytes.Buffer, entry *message.Entry) {
+	b.WriteString(path.Base(entry.FileName))
+}
+
 func (f *TextFormatter) writeFuncLine(b *bytes.Buffer, entry *message.Entry) {
 	b.WriteString(strconv.FormatInt(int64(entry.CallerLine), 10))
 }
+
 func (f *TextFormatter) writeFuncName(b *bytes.Buffer, entry *message.Entry) {
 	b.WriteString(entry.CallerName)
 }
-func (f *TextFormatter) writeCaller(b *bytes.Buffer, entry *message.Entry) {
+
+func (f *TextFormatter) writeFullCaller(b *bytes.Buffer, entry *message.Entry) {
 	s := path.Join(entry.FilePath, path.Base(entry.FileName)) + ":" + strconv.FormatInt(int64(entry.CallerLine), 10) + ":" + entry.CallerName
 	if f.DisableColors {
 		b.WriteString(s)
@@ -218,16 +231,23 @@ func (f *TextFormatter) writeCaller(b *bytes.Buffer, entry *message.Entry) {
 		b.WriteString(blue + s + colorEnd)
 	}
 }
-func (f *TextFormatter) writeMessage(b *bytes.Buffer, entry *message.Entry) {
-	stringVal, ok := entry.Message.(string)
-	if !ok {
-		stringVal = fmt.Sprint(entry.Message)
+
+func (f *TextFormatter) writeCaller(b *bytes.Buffer, entry *message.Entry) {
+	s := path.Base(entry.FileName) + ":" + strconv.FormatInt(int64(entry.CallerLine), 10) + ":" + entry.CallerName
+	if f.DisableColors {
+		b.WriteString(s)
+	} else {
+		b.WriteString(blue + s + colorEnd)
 	}
+}
+
+func (f *TextFormatter) writeMessage(b *bytes.Buffer, entry *message.Entry) {
+	stringVal := entry.Message
 
 	if !f.needsQuoting(stringVal) {
 		b.WriteString(stringVal)
 	} else {
-		b.WriteString(fmt.Sprintf("%q", stringVal))
+		fmt.Fprintf(b, "%q", stringVal)
 	}
 }
 
@@ -237,22 +257,24 @@ func (f *TextFormatter) parseWriteFuncList(src string) {
 	}
 	writeFuncMap := map[string]writeFunc{
 		"LoggerName": f.writeLogName,
+		"FullCaller": f.writeFullCaller,
 		"Caller":     f.writeCaller,
 		"Pid":        f.writePid,
-		"RoutineId":  f.writeRoutineId,
+		"RoutineId":  f.writeRoutineID,
 		"Ip":         f.writeIP,
 		"HostName":   f.writeHostName,
-		"File":       f.writeFilepath,
+		"Path":       f.writeFilepath,
+		"File":       f.writeFileName,
 		"Line":       f.writeFuncLine,
 		"Func":       f.writeFuncName,
-		"TradeId":    f.writeTradeId,
+		"TradeId":    f.writeTradeID,
 		"LevelName":  f.writeLogLevel,
 		"LevelNo":    f.writeLogLevelNo,
 		"DateTime":   f.writeDateTime,
 		"Msecs":      f.writeTimeMs,
 		"Message":    f.writeMessage,
 	}
-	var regexpPattern = regexp.MustCompile(`%\[(\w+)?\][sdfwvtq]`)
+	regexpPattern := regexp.MustCompile(`%\[(\w+)?\][sdfwvtq]`)
 	result := regexpPattern.FindAllStringSubmatchIndex(src, -1)
 	var preIdx int
 	var strList []string
@@ -271,7 +293,7 @@ func (f *TextFormatter) parseWriteFuncList(src string) {
 		if ok {
 			list = append(list, fn)
 		} else {
-			println(fmt.Sprintf("%s in config.Text.PatternStyle,but it isn't in writeFuncMap", key))
+			println(fmt.Sprintf("%s in `PatternStyle`,but it isn't in writeFuncMap", key))
 		}
 		if preIdx != 0 {
 			strList = append(strList, src[preIdx:idxList[0]])
@@ -281,5 +303,4 @@ func (f *TextFormatter) parseWriteFuncList(src string) {
 	f.sepList = strList
 	f.sepListLen = len(strList)
 	f.writeFuncList = list
-	return
 }

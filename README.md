@@ -158,13 +158,15 @@ The following are all the options that can be configured:
 %[LoggerName]s      the name of the logger.
 %[LevelNo]s         the logging level in numeric form.
 %[LevelName]s       the text name of the logging level.
-%[Caller]s          Execution logging call (including file path and name, line number, function name).
-%[File]s            The path and file name of the source file where the logging call is executed.
-%[Func]s            The name of the function called in the execution log.
-%[Line]d            The line number of the execution log call.
+%[Caller]s          logging call (including file name, line number, function name).
+%[FullCaller]s      logging call (including file path and name, line number, function name).
+%[Path]s            Record the calling source file path.
+%[File]s            Record the name of the source file called.
+%[Func]s            Record the function name called.
+%[Line]d            Record the calling line number.
 %[DateTime]s        The time of the log execution.
 %[Msecs]d           The millisecond portion of the execution logging time.
-%[TradeId]s         the ID of the context trace.
+%[TraceId]s         the ID of the context trace.
 %[IP]s              local IP address of the server.
 %[HostName]s        Server host name.
 %[Pid]d             Process ID.

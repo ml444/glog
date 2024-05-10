@@ -13,11 +13,11 @@ const (
 	InfoLevel
 	WarnLevel
 	ErrorLevel
-	FatalLevel
 	PanicLevel
+	FatalLevel
 )
 
-// Convert the Level to a string. E.g. PanicLevel becomes "panic".
+// Convert the Level to a string. E.g.
 func (lvl LogLevel) String() string {
 	switch lvl {
 	case DebugLevel:
@@ -30,23 +30,22 @@ func (lvl LogLevel) String() string {
 		return "warn"
 	case ErrorLevel:
 		return "error"
-	case FatalLevel:
-		return "fatal"
 	case PanicLevel:
 		return "panic"
+	case FatalLevel:
+		return "fatal"
 	default:
 		return fmt.Sprintf("Level(%d)", lvl)
 	}
-
 }
 
 // ParseLevel takes a string level and returns the log level constant.
 func ParseLevel(lvl string) (LogLevel, error) {
 	switch strings.ToLower(lvl) {
-	case "panic":
-		return PanicLevel, nil
 	case "fatal":
 		return FatalLevel, nil
+	case "panic":
+		return PanicLevel, nil
 	case "error":
 		return ErrorLevel, nil
 	case "warn", "warning":
@@ -74,10 +73,10 @@ func (lvl LogLevel) ShortString() string {
 		return "ERR "
 	case PrintLevel:
 		return "PRT "
-	case FatalLevel:
-		return "FAT "
 	case PanicLevel:
 		return "PAN "
+	case FatalLevel:
+		return "FAT "
 	default:
 		return fmt.Sprintf("L(%d) ", lvl)
 	}

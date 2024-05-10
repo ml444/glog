@@ -8,76 +8,56 @@ import (
 )
 
 type ChannelEngine struct {
-	msgHandlers  []handler.IHandler
-	msgChan      chan *message.Entry
-	reportChan   chan *message.Entry
-	doneChan     chan bool
-	enableReport bool
-	reportLevel  level.LogLevel
+	cfg         *config.Config
+	msgChan     chan *message.Entry
+	reportChan  chan *message.Entry
+	msgHandlers []handler.IHandler
+	OnError     func(msg *message.Entry, err error)
+	reportLevel level.LogLevel
 
-	OnError func(msg *message.Entry, err error)
+	enableReport bool
+	done         bool
 }
 
-func NewChannelEngine() *ChannelEngine {
+func NewChannelEngine(cfg *config.Config) *ChannelEngine {
 	return &ChannelEngine{
-		enableReport: config.GlobalConfig.EnableReport,
-		reportLevel:  config.GlobalConfig.ReportLevel,
+		cfg:          cfg,
+		enableReport: cfg.EnableReport,
+		reportLevel:  cfg.ReportLevel,
+		msgChan:      make(chan *message.Entry, cfg.LoggerCacheSize),
+		reportChan:   make(chan *message.Entry, cfg.ReportCacheSize),
+		OnError:      cfg.OnError,
 	}
 }
 
-func (e *ChannelEngine) Init() error {
-	e.msgChan = make(chan *message.Entry, config.GlobalConfig.LoggerCacheSize)
-	e.reportChan = make(chan *message.Entry, config.GlobalConfig.ReportCacheSize)
-	e.doneChan = make(chan bool, 1)
-	return nil
-}
-
 func (e *ChannelEngine) Start() error {
-	h, err := handler.GetNewHandler(config.GlobalConfig.Handler.LogHandlerConfig)
+	h, err := handler.GetNewHandler(e.cfg.LogHandlerConfig)
 	if err != nil {
-		e.doneChan <- true
 		return err
 	}
 	e.msgHandlers = append(e.msgHandlers, h)
 	go func() {
-		for {
-			select {
-			case msg := <-e.msgChan:
-				err = h.Emit(msg)
-				if err != nil && e.OnError != nil {
-					e.OnError(msg, err)
-				}
-			case <-e.doneChan:
-				err = e.Stop()
-				if err != nil && e.OnError != nil {
-					e.OnError(&message.Entry{}, err)
-				}
-				return
+		for !e.done {
+			msg := <-e.msgChan
+			err = h.Emit(msg)
+			if err != nil && e.OnError != nil {
+				e.OnError(msg, err)
 			}
 		}
 	}()
 	if e.enableReport {
 		var reportHandler handler.IHandler
-		reportHandler, err = handler.GetNewHandler(config.GlobalConfig.Handler.ReportHandlerConfig)
+		reportHandler, err = handler.GetNewHandler(e.cfg.ReportHandlerConfig)
 		if err != nil {
-			e.doneChan <- true
 			return err
 		}
 		e.msgHandlers = append(e.msgHandlers, reportHandler)
 		go func() {
-			for {
-				select {
-				case msg := <-e.reportChan:
-					err = reportHandler.Emit(msg)
-					if err != nil && e.OnError != nil {
-						e.OnError(msg, err)
-					}
-				case <-e.doneChan:
-					err = e.Stop()
-					if err != nil && e.OnError != nil {
-						e.OnError(&message.Entry{}, err)
-					}
-					return
+			for !e.done {
+				msg := <-e.reportChan
+				err = reportHandler.Emit(msg)
+				if err != nil && e.OnError != nil {
+					e.OnError(msg, err)
 				}
 			}
 		}()
@@ -86,24 +66,30 @@ func (e *ChannelEngine) Start() error {
 }
 
 func (e *ChannelEngine) Send(entry *message.Entry) {
-	select {
-	case e.msgChan <- entry:
-	}
-
-	if e.enableReport && entry.Level >= e.reportLevel {
-		select {
-		case e.reportChan <- entry:
+	if e.done {
+		close(e.msgChan)
+		if e.enableReport {
+			close(e.reportChan)
 		}
+		return
 	}
-	return
+	e.msgChan <- entry
+	if e.enableReport && entry.Level >= e.reportLevel {
+		e.reportChan <- entry
+	}
 }
 
 func (e *ChannelEngine) Stop() (err error) {
 	for _, h := range e.msgHandlers {
 		err = h.Close()
 		if err != nil {
-			println(err)
+			if e.OnError != nil {
+				e.OnError(&message.Entry{}, err)
+			} else {
+				println(err)
+			}
 		}
 	}
+	e.done = true
 	return nil
 }
