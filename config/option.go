@@ -47,108 +47,20 @@ func SetCacheSize2Report(size int) OptionFunc {
 	return func(cfg *Config) { cfg.ReportCacheSize = size }
 }
 
-func SetHandlerType2Logger(typ handler.HandlerType) OptionFunc {
-	return func(cfg *Config) { cfg.LogHandlerConfig.HandlerType = typ }
+func SetHandler2Logger(h handler.IHandler) OptionFunc {
+	return func(cfg *Config) { cfg.LogHandlerConfig.ExternalHandler = h }
 }
 
-func SetHandlerType2Report(typ handler.HandlerType) OptionFunc {
-	return func(cfg *Config) { cfg.ReportHandlerConfig.HandlerType = typ }
+func SetHandler2Report(h handler.IHandler) OptionFunc {
+	return func(cfg *Config) { cfg.ReportHandlerConfig.ExternalHandler = h }
 }
 
-// SetFileName2Logger By default, the file name is the same as the logger name,
-// if you need to specify special can be set through this config.
-func SetFileName2Logger(name string) OptionFunc {
-	return func(cfg *Config) { cfg.LogHandlerConfig.File.FileName = name }
+func SetHandlerCfg2Logger(hcfg handler.HandlerConfig) OptionFunc {
+	return func(cfg *Config) { cfg.LogHandlerConfig = hcfg }
 }
 
-// SetFileName2Report By default, the file name is the same as the logger name,
-// if you need to specify special can be set through this config.
-func SetFileName2Report(name string) OptionFunc {
-	return func(cfg *Config) { cfg.ReportHandlerConfig.File.FileName = name }
-}
-
-func SetFileDir2Logger(path string) OptionFunc {
-	return func(cfg *Config) { cfg.LogHandlerConfig.File.FileDir = path }
-}
-
-func SetFileDir2Report(path string) OptionFunc {
-	return func(cfg *Config) { cfg.ReportHandlerConfig.File.FileDir = path }
-}
-
-func SetFileRotatorType2Logger(typ handler.RotatorType) OptionFunc {
-	return func(cfg *Config) { cfg.LogHandlerConfig.File.RotatorType = typ }
-}
-
-func SetFileRotatorType2Report(typ handler.RotatorType) OptionFunc {
-	return func(cfg *Config) { cfg.ReportHandlerConfig.File.RotatorType = typ }
-}
-
-func SetFileBackupCount2Logger(count int) OptionFunc {
-	return func(cfg *Config) { cfg.LogHandlerConfig.File.BackupCount = count }
-}
-
-func SetFileBackupCount2Report(count int) OptionFunc {
-	return func(cfg *Config) { cfg.ReportHandlerConfig.File.BackupCount = count }
-}
-
-func SetFileMaxSize2Logger(size int64) OptionFunc {
-	return func(cfg *Config) {
-		cfg.LogHandlerConfig.File.MaxFileSize = size
-	}
-}
-
-func SetFileMaxSize2Report(size int64) OptionFunc {
-	return func(cfg *Config) {
-		cfg.ReportHandlerConfig.File.MaxFileSize = size
-	}
-}
-
-func SetFileRolloverInterval2Logger(interval int64) OptionFunc {
-	return func(cfg *Config) {
-		cfg.LogHandlerConfig.File.Interval = interval
-	}
-}
-
-func SetFileRolloverInterval2Report(interval int64) OptionFunc {
-	return func(cfg *Config) {
-		cfg.ReportHandlerConfig.File.Interval = interval
-	}
-}
-
-func SetFileRematch2Logger(pattern string) OptionFunc {
-	return func(cfg *Config) {
-		cfg.LogHandlerConfig.File.ReMatch = pattern
-	}
-}
-
-func SetFileRematch2Report(pattern string) OptionFunc {
-	return func(cfg *Config) {
-		cfg.ReportHandlerConfig.File.ReMatch = pattern
-	}
-}
-
-func SetFileTimeFmtSuffix2Logger(timeFmt string) OptionFunc {
-	return func(cfg *Config) {
-		cfg.LogHandlerConfig.File.TimeSuffixFmt = timeFmt
-	}
-}
-
-func SetFileTimeFmtSuffix2Report(timeFmt string) OptionFunc {
-	return func(cfg *Config) {
-		cfg.ReportHandlerConfig.File.TimeSuffixFmt = timeFmt
-	}
-}
-
-func SetFileHandlerConfig2Logger(fileCfg handler.FileHandlerConfig) OptionFunc {
-	return func(cfg *Config) {
-		cfg.LogHandlerConfig.File = fileCfg
-	}
-}
-
-func SetFileHandlerConfig2Report(fileCfg handler.FileHandlerConfig) OptionFunc {
-	return func(cfg *Config) {
-		cfg.ReportHandlerConfig.File = fileCfg
-	}
+func SetHandlerCfg2Report(hcfg handler.HandlerConfig) OptionFunc {
+	return func(cfg *Config) { cfg.ReportHandlerConfig = hcfg }
 }
 
 func SetStreamer2Logger(streamer handler.IStreamer) OptionFunc {
@@ -165,25 +77,25 @@ func SetStreamer2Report(streamer handler.IStreamer) OptionFunc {
 	}
 }
 
-func SetSyslogHandlerConfig2Logger(syslogCfg handler.SyslogHandlerConfig) OptionFunc {
+func SetSyslogHandlerCfg2Logger(syslogCfg handler.SyslogHandlerConfig) OptionFunc {
 	return func(cfg *Config) {
 		cfg.LogHandlerConfig.Syslog = syslogCfg
 	}
 }
 
-func SetSyslogHandlerConfig2Report(syslogCfg handler.SyslogHandlerConfig) OptionFunc {
+func SetSyslogHandlerCfg2Report(syslogCfg handler.SyslogHandlerConfig) OptionFunc {
 	return func(cfg *Config) {
 		cfg.ReportHandlerConfig.Syslog = syslogCfg
 	}
 }
 
-func SetFormatterConfig2Logger(formatterCfg formatter.FormatterConfig) OptionFunc {
+func SetFormatterCfg2Logger(formatterCfg formatter.FormatterConfig) OptionFunc {
 	return func(cfg *Config) {
 		cfg.LogHandlerConfig.Formatter = formatterCfg
 	}
 }
 
-func SetFormatterConfig2Report(formatterCfg formatter.FormatterConfig) OptionFunc {
+func SetFormatterCfg2Report(formatterCfg formatter.FormatterConfig) OptionFunc {
 	return func(cfg *Config) {
 		cfg.ReportHandlerConfig.Formatter = formatterCfg
 	}

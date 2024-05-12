@@ -8,10 +8,11 @@ import (
 
 	"github.com/ml444/glog/util"
 
+	"github.com/petermattis/goid"
+
 	"github.com/ml444/glog/config"
 	"github.com/ml444/glog/engine"
 	"github.com/ml444/glog/message"
-	"github.com/petermattis/goid"
 
 	"github.com/ml444/glog/level"
 )
@@ -182,7 +183,7 @@ func (l *Logger) printStack(callDepth int, lvl level.LogLevel) {
 		if name.Name() == "runtime.goexit" {
 			break
 		}
-		fmt.Fprintf(buf, "#STACK: %s %s:%d\n", name.Name(), file, line)
+		fmt.Fprintf(buf, "	[STACK]: %s %s:%d\n", name.Name(), file, line)
 	}
 	l.send(lvl, buf.String())
 }

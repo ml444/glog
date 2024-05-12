@@ -21,10 +21,11 @@ const (
 )
 
 type HandlerConfig struct {
-	HandlerType HandlerType
-	File        FileHandlerConfig
-	Stream      StreamHandlerConfig
-	Syslog      SyslogHandlerConfig
+	ExternalHandler IHandler
+	HandlerType     HandlerType
+	File            FileHandlerConfig
+	Stream          StreamHandlerConfig
+	Syslog          SyslogHandlerConfig
 
 	Formatter formatter.FormatterConfig
 	Filter    filter.IFilter
@@ -41,6 +42,9 @@ type SyslogHandlerConfig struct {
 }
 
 func GetNewHandler(handlerCfg HandlerConfig) (IHandler, error) {
+	if handlerCfg.ExternalHandler != nil {
+		return handlerCfg.ExternalHandler, nil
+	}
 	switch handlerCfg.HandlerType {
 	case HandlerTypeFile:
 		return NewFileHandler(&handlerCfg)
