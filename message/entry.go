@@ -5,7 +5,7 @@ import (
 	"reflect"
 	"runtime"
 	"time"
-
+	
 	"github.com/ml444/glog/level"
 )
 
@@ -24,7 +24,7 @@ type Entry struct {
 	Caller     *runtime.Frame
 }
 
-func (e Entry) IsRecordCaller() bool {
+func (e *Entry) IsRecordCaller() bool {
 	if e.Caller != nil || (e.CallerName != "" && e.FileName != "" && e.CallerLine > 0) {
 		return true
 	}
@@ -36,7 +36,7 @@ func ConstructFieldIndexMap() map[string]int {
 	m := map[string]int{}
 	for i := 0; i < dataT.NumField(); i++ {
 		field := dataT.Field(i)
-
+		
 		key := field.Name
 		m[key] = i + 1
 	}
@@ -51,13 +51,6 @@ func GetEntryValues(entry *Entry) []interface{} {
 	var values []interface{}
 	for i := 0; i < dataV.NumField(); i++ {
 		v := dataV.Field(i)
-		//if v.Kind() == reflect.Map {
-		//	for _, key := range v.MapKeys() {
-		//		values = append(values, v.MapIndex(key))
-		//	}
-		//} else {
-		//	values = append(values, v)
-		//}
 		values = append(values, v)
 	}
 	return values
@@ -68,11 +61,13 @@ func (e *Entry) FillRecord(timestampFormat string) *Record {
 		Level:   e.Level.String(),
 		Message: e.Message,
 		ErrMsg:  e.ErrMsg,
+		TraceID: e.TraceID,
+		Module:  e.LogName,
 	}
-
+	
 	record.Datetime = e.Time.Format(timestampFormat)
 	record.Timestamp = e.Time.UnixMilli()
-
+	
 	if e.IsRecordCaller() {
 		if e.Caller != nil {
 			funcVal := e.Caller.Function

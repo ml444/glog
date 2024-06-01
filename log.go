@@ -4,8 +4,9 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-
+	
 	gomonkey "github.com/agiledragon/gomonkey/v2"
+	
 	"github.com/ml444/glog/config"
 )
 
@@ -36,7 +37,7 @@ func init() {
 	gomonkey.ApplyFunc(os.Exit, ExitHook)
 }
 
-func InitLog(opts ...config.OptionFunc) error {
+func InitLog(opts ...config.Option) error {
 	for _, optionFunc := range opts {
 		optionFunc(Config)
 	}

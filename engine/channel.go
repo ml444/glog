@@ -14,7 +14,7 @@ type ChannelEngine struct {
 	msgHandlers []handler.IHandler
 	OnError     func(msg *message.Entry, err error)
 	reportLevel level.LogLevel
-
+	
 	enableReport bool
 	done         bool
 }
@@ -23,15 +23,15 @@ func NewChannelEngine(cfg *config.Config) *ChannelEngine {
 	return &ChannelEngine{
 		cfg:          cfg,
 		enableReport: cfg.EnableReport,
-		reportLevel:  cfg.ReportLevel,
-		msgChan:      make(chan *message.Entry, cfg.LoggerCacheSize),
-		reportChan:   make(chan *message.Entry, cfg.ReportCacheSize),
+		reportLevel:  cfg.ReportConfig.Level,
+		msgChan:      make(chan *message.Entry, cfg.LogConfig.CacheSize),
+		reportChan:   make(chan *message.Entry, cfg.ReportConfig.CacheSize),
 		OnError:      cfg.OnError,
 	}
 }
 
 func (e *ChannelEngine) Start() error {
-	h, err := handler.GetNewHandler(e.cfg.LogHandlerConfig)
+	h, err := handler.GetNewHandler(e.cfg.LogConfig.Config)
 	if err != nil {
 		return err
 	}
@@ -47,7 +47,7 @@ func (e *ChannelEngine) Start() error {
 	}()
 	if e.enableReport {
 		var reportHandler handler.IHandler
-		reportHandler, err = handler.GetNewHandler(e.cfg.ReportHandlerConfig)
+		reportHandler, err = handler.GetNewHandler(e.cfg.ReportConfig.Config)
 		if err != nil {
 			return err
 		}

@@ -4,23 +4,23 @@ import (
 	"bytes"
 	"encoding/xml"
 	"fmt"
-
+	
 	"github.com/ml444/glog/message"
 )
 
-type XMLFormatter struct {
+type XmlConfig struct {
 	TimestampFormat string
 	PrettyPrint     bool
 }
 
-func NewXMLFormatter(formatterCfg FormatterConfig) *XMLFormatter {
-	return &XMLFormatter{
-		TimestampFormat: formatterCfg.TimestampFormat,
-		PrettyPrint:     formatterCfg.PrettyPrint,
+func NewXmlConfig(cfg *Config) *XmlConfig {
+	return &XmlConfig{
+		TimestampFormat: cfg.TimestampFormat,
+		PrettyPrint:     cfg.PrettyPrint,
 	}
 }
 
-func (f *XMLFormatter) Format(entry *message.Entry) ([]byte, error) {
+func (f *XmlConfig) Format(entry *message.Entry) ([]byte, error) {
 	record := entry.FillRecord(f.TimestampFormat)
 	b := &bytes.Buffer{}
 	encoder := xml.NewEncoder(b)

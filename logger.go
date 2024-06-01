@@ -5,15 +5,15 @@ import (
 	"runtime"
 	"strings"
 	"time"
-
+	
 	"github.com/ml444/glog/util"
-
+	
 	"github.com/petermattis/goid"
-
+	
 	"github.com/ml444/glog/config"
 	"github.com/ml444/glog/engine"
 	"github.com/ml444/glog/message"
-
+	
 	"github.com/ml444/glog/level"
 )
 
@@ -21,11 +21,11 @@ type StdLogger interface {
 	Print(...interface{})
 	Println(...interface{})
 	Printf(string, ...interface{})
-
+	
 	Fatal(...interface{})
 	Fatalln(...interface{})
 	Fatalf(string, ...interface{})
-
+	
 	Panic(...interface{})
 	Panicln(...interface{})
 	Panicf(string, ...interface{})
@@ -34,29 +34,29 @@ type StdLogger interface {
 type ILogger interface {
 	GetLoggerName() string
 	SetLoggerName(string)
-
+	
 	GetLevel() level.LogLevel
 	SetLevel(level.LogLevel)
 	EnabledLevel(lvl level.LogLevel) bool
-
+	
 	Debug(...interface{})
 	Info(...interface{})
 	Warn(...interface{})
 	Error(...interface{})
-
+	
 	Print(...interface{})
 	Fatal(...interface{})
 	Panic(...interface{})
-
+	
 	Debugf(template string, args ...interface{})
 	Infof(template string, args ...interface{})
 	Warnf(template string, args ...interface{})
 	Errorf(template string, args ...interface{})
-
+	
 	Printf(template string, args ...interface{})
 	Fatalf(template string, args ...interface{})
 	Panicf(template string, args ...interface{})
-
+	
 	Stop() error
 }
 
@@ -64,7 +64,7 @@ type Logger struct {
 	Name   string
 	Level  level.LogLevel
 	engine engine.IEngine
-
+	
 	TradeIDFunc    func(entry *message.Entry) string
 	ExitFunc       func(code int) // Function to exit the application, defaults to `os.Exit()`
 	ExitOnFatal    bool
@@ -85,8 +85,8 @@ func NewLogger(cfg *config.Config) (*Logger, error) {
 		cfg = config.NewDefaultConfig()
 	}
 	l := Logger{
-		Name:           cfg.LoggerName,
-		Level:          cfg.LoggerLevel,
+		Name:           cfg.LogConfig.Name,
+		Level:          cfg.LogConfig.Level,
 		ExitFunc:       cfg.ExitFunc,
 		ExitOnFatal:    cfg.ExitOnFatal,
 		ThrowOnPanic:   cfg.ThrowOnPanic,
@@ -122,12 +122,11 @@ func (l *Logger) send(lvl level.LogLevel, msg string) {
 		Message:   msg,
 		Time:      time.Now(),
 		Level:     lvl,
-		// ErrMsg:    "",
 	}
 	if l.TradeIDFunc != nil {
 		entry.TraceID = l.TradeIDFunc(entry)
 	}
-
+	
 	if l.IsRecordCaller {
 		entry.Caller = util.GetCaller()
 	}
@@ -147,7 +146,7 @@ func (l *Logger) logf(lvl level.LogLevel, template string, args ...interface{}) 
 	if lvl < l.Level {
 		return
 	}
-
+	
 	msg := template
 	if msg == "" && len(args) > 0 {
 		msg = fmt.Sprint(args...)

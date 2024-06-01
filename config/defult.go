@@ -3,10 +3,18 @@ package config
 import (
 	"os"
 	"strings"
-
+	
 	"github.com/ml444/glog/formatter"
 	"github.com/ml444/glog/handler"
 	"github.com/ml444/glog/level"
+)
+
+const (
+	defaultCacheSize         = 1024 * 64
+	defaultFileBulkWriteSize = 24
+	defaultReportFileSuffix  = "report"
+	defaultFileTimeSuffixFmt = "2006010215"
+	defaultFileReMatch       = "^\\d{10}(\\.\\w+)?$"
 )
 
 const (
@@ -15,72 +23,103 @@ const (
 	PatternTemplateWithTrace   = "<%[TradeId]s> %[LoggerName]s (%[Pid]d,%[RoutineId]d) %[DateTime]s %[LevelName]s %[Caller]s %[Message]v"
 )
 
-func NewDefaultConfig() *Config {
+var defaultFileErrCallback = func(buf []byte, err error) {
+	if err != nil {
+		println("===>glog logger err: ", err.Error())
+	}
+}
+
+func NewDefaultGeneralConfig() *GeneralConfig {
+	return &GeneralConfig{
+		ExitOnFatal:    false,
+		ThrowOnPanic:   false,
+		IsRecordCaller: false,
+		EnableReport:   false,
+		ExitFunc:       os.Exit,
+		TradeIDFunc:    nil,
+		OnError:        nil,
+	}
+}
+
+func NewDefaultLogConfig() *LogConfig {
 	curDir, err := os.Getwd()
 	if err != nil {
 		println(err.Error())
 	}
 	defaultLogDir := curDir
-	defaultReportLogDir := curDir
-
 	l := strings.Split(curDir, string(os.PathSeparator))
-	defaultLogName := ""
+	
+	fileConfig := handler.NewFileConfig(
+		handler.WithFileRotatorType(handler.FileRotatorTypeTimeAndSize),
+		handler.WithFileDir(defaultLogDir),
+		handler.WithFileMaxFileSize(defaultMaxFileSize),
+		handler.WithFileBulkWriteSize(defaultFileBulkWriteSize),
+		handler.WithFileTimeSuffixFmt(defaultFileTimeSuffixFmt),
+		handler.WithFileReMatch(defaultFileReMatch),
+		handler.WithFileErrCallback(defaultFileErrCallback),
+	)
+	
+	formatConfig := formatter.NewConfig(
+		formatter.WithFormatterType(formatter.TypeText),
+		formatter.WithTimestampFormat(DefaultTimestampFormat),
+		formatter.WithPatternStyle(PatternTemplateWithDefault),
+	)
+	
+	handlerConfig := handler.NewConfig(
+		handler.WithFileConfig(fileConfig),
+		handler.WithType(handler.TypeStdout),
+		handler.WithFormatConfig(formatConfig),
+	)
+	
+	return &LogConfig{
+		Name: l[len(l)-1],
+		BaseLogConfig: &BaseLogConfig{
+			CacheSize: defaultCacheSize,
+			Level:     level.PrintLevel,
+			Config:    handlerConfig,
+		},
+	}
+}
 
+func NewDefaultReportConfig() *ReportConfig {
+	curDir, err := os.Getwd()
+	if err != nil {
+		println(err.Error())
+	}
+	defaultReportLogDir := curDir
+	
+	fileConfig := handler.NewFileConfig(
+		handler.WithFileRotatorType(handler.FileRotatorTypeSize),
+		handler.WithFileDir(defaultReportLogDir),
+		handler.WithFileMaxFileSize(defaultMaxFileSize),
+		handler.WithFileBulkWriteSize(defaultFileBulkWriteSize),
+		handler.WithFileFileSuffix(defaultReportFileSuffix),
+		handler.WithFileErrCallback(defaultFileErrCallback),
+	)
+	
+	formatConfig := formatter.NewConfig(
+		formatter.WithFormatterType(formatter.TypeJson),
+		formatter.WithTimestampFormat(DefaultTimestampFormat),
+	)
+	
+	handlerConfig := handler.NewConfig(
+		handler.WithFileConfig(fileConfig),
+		handler.WithFormatConfig(formatConfig),
+	)
+	
+	return &ReportConfig{
+		BaseLogConfig: &BaseLogConfig{
+			CacheSize: defaultCacheSize,
+			Level:     level.PrintLevel,
+			Config:    handlerConfig,
+		},
+	}
+}
+
+func NewDefaultConfig() *Config {
 	return &Config{
-		LoggerName:      l[len(l)-1],
-		LoggerLevel:     level.PrintLevel,
-		LoggerCacheSize: 1024 * 64,
-
-		EnableReport:    false,
-		ReportLevel:     level.ErrorLevel,
-		ReportCacheSize: 10000,
-
-		ExitFunc: os.Exit,
-		// TradeIDFunc:    nil,
-		IsRecordCaller: true,
-		LogHandlerConfig: handler.HandlerConfig{
-			HandlerType: handler.HandlerTypeStdout,
-			File: handler.FileHandlerConfig{
-				RotatorType:       handler.FileRotatorTypeTimeAndSize,
-				FileDir:           defaultLogDir,
-				FileName:          "",
-				MaxFileSize:       defaultMaxFileSize * 4,
-				BulkWriteSize:     10485760, // 10MB
-				BackupCount:       24,
-				Interval:          60 * 60,
-				TimeSuffixFmt:     "2006010215",
-				ReMatch:           "^\\d{10}(\\.\\w+)?$",
-				FileSuffix:        "log",
-				MultiProcessWrite: false,
-
-				ErrCallback: func(buf []byte, err error) {
-					println("===>glog logger err: ", err.Error())
-				},
-			},
-			Formatter: formatter.FormatterConfig{
-				FormatterType:   formatter.FormatterTypeText,
-				TimestampFormat: DefaultTimestampFormat,
-				PatternStyle:    PatternTemplateWithDefault,
-			},
-		},
-		ReportHandlerConfig: handler.HandlerConfig{
-			HandlerType: handler.HandlerTypeFile,
-			File: handler.FileHandlerConfig{
-				RotatorType: handler.FileRotatorTypeSize,
-				FileDir:     defaultReportLogDir,
-				FileName:    defaultLogName,
-				MaxFileSize: defaultMaxFileSize,
-				BackupCount: 24,
-				FileSuffix:  "report",
-
-				ErrCallback: func(buf []byte, err error) {
-					println("===>glog report err: ", err.Error())
-				},
-			},
-			Formatter: formatter.FormatterConfig{
-				FormatterType:   formatter.FormatterTypeJSON,
-				TimestampFormat: DefaultTimestampFormat,
-			},
-		},
+		GeneralConfig: NewDefaultGeneralConfig(),
+		LogConfig:     NewDefaultLogConfig(),
+		ReportConfig:  NewDefaultReportConfig(),
 	}
 }

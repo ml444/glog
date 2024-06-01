@@ -3,7 +3,7 @@
 
 package handler
 
-//import "C"
+// import "C"
 import (
 	"os"
 	"sync"
@@ -13,7 +13,7 @@ var stderrFile *os.File
 var once sync.Once
 
 func rewriteStderr(fileDir, filePrefix string) {
-	//once.Do(func() {
+	// once.Do(func() {
 	//	stderrFilepath := filepath.Join(fileDir, fmt.Sprintf("%s_stderr.log", filePrefix))
 	//	file, err := os.OpenFile(stderrFilepath, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
 	//	if err != nil {
@@ -31,5 +31,5 @@ func rewriteStderr(fileDir, filePrefix string) {
 	//	runtime.SetFinalizer(stderrFile, func(fd *os.File) {
 	//		_ = fd.Close()
 	//	})
-	//})
+	// })
 }

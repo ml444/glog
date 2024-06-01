@@ -2,7 +2,7 @@ package config
 
 import (
 	"time"
-
+	
 	"github.com/ml444/glog/handler"
 	"github.com/ml444/glog/level"
 	"github.com/ml444/glog/message"
@@ -14,18 +14,33 @@ const (
 )
 
 type Config struct {
-	LoggerName          string
-	LogHandlerConfig    handler.HandlerConfig
-	ReportHandlerConfig handler.HandlerConfig
-	ExitFunc            func(code int) // Function to exit the application, defaults to `os.Exit()`
-	TradeIDFunc         func(entry *message.Entry) string
-	OnError             func(msg *message.Entry, err error)
-	ReportCacheSize     int
-	LoggerCacheSize     int
-	LoggerLevel         level.LogLevel
-	ReportLevel         level.LogLevel
-	ExitOnFatal         bool
-	ThrowOnPanic        bool
-	IsRecordCaller      bool
-	EnableReport        bool
+	*GeneralConfig
+	*LogConfig
+	*ReportConfig
+}
+
+type GeneralConfig struct {
+	ExitOnFatal    bool
+	ThrowOnPanic   bool
+	IsRecordCaller bool
+	EnableReport   bool
+	
+	ExitFunc    func(code int)
+	TradeIDFunc func(entry *message.Entry) string
+	OnError     func(msg *message.Entry, err error)
+}
+
+type BaseLogConfig struct {
+	CacheSize int
+	Level     level.LogLevel
+	Config    *handler.Config
+}
+
+type LogConfig struct {
+	*BaseLogConfig
+	Name string
+}
+
+type ReportConfig struct {
+	*BaseLogConfig
 }

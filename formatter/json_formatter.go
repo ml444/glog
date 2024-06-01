@@ -4,27 +4,25 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-
+	
 	"github.com/ml444/glog/message"
 )
 
-type JSONFormatter struct {
-	timestampFormat string
-	// disableTimestamp  bool
+type JsonConfig struct {
+	timestampFormat   string
 	disableHTMLEscape bool
 	prettyPrint       bool
 }
 
-func NewJSONFormatter(formatterCfg FormatterConfig) *JSONFormatter {
-	return &JSONFormatter{
-		timestampFormat:   formatterCfg.TimestampFormat,
-		disableHTMLEscape: formatterCfg.DisableHTMLEscape,
-		prettyPrint:       formatterCfg.PrettyPrint,
-		// disableTimestamp:  jsonCfg.DisableTimestamp,
+func NewJsonConfig(cfg *Config) *JsonConfig {
+	return &JsonConfig{
+		timestampFormat:   cfg.TimestampFormat,
+		disableHTMLEscape: cfg.DisableHTMLEscape,
+		prettyPrint:       cfg.PrettyPrint,
 	}
 }
 
-func (f *JSONFormatter) Format(entry *message.Entry) ([]byte, error) {
+func (f *JsonConfig) Format(entry *message.Entry) ([]byte, error) {
 	record := entry.FillRecord(f.timestampFormat)
 	b := &bytes.Buffer{}
 	encoder := json.NewEncoder(b)

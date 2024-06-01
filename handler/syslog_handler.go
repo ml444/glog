@@ -4,9 +4,9 @@ package handler
 
 import (
 	"log/syslog"
-
+	
 	"github.com/ml444/glog/filter"
-
+	
 	"github.com/ml444/glog/formatter"
 	"github.com/ml444/glog/level"
 	"github.com/ml444/glog/message"
@@ -19,19 +19,19 @@ type SyslogHandler struct {
 	raddr    string
 	priority int
 	tag      string
-
+	
 	formatter formatter.IFormatter
 	filter    filter.IFilter
 }
 
-func NewSyslogHandler(handlerCfg *HandlerConfig) (*SyslogHandler, error) {
+func NewSyslogHandler(handlerCfg *Config) (*SyslogHandler, error) {
 	cfg := handlerCfg.Syslog
 	h := &SyslogHandler{
 		network:   cfg.Network,
 		raddr:     cfg.Address,
 		priority:  cfg.Priority,
 		tag:       cfg.Tag,
-		formatter: formatter.GetNewFormatter(handlerCfg.Formatter),
+		formatter: formatter.GetNewFormatter(handlerCfg.FormatConfig),
 		filter:    handlerCfg.Filter,
 	}
 	err := h.Init()
@@ -67,9 +67,9 @@ func (h *SyslogHandler) Emit(e *message.Entry) error {
 	if err != nil {
 		return err
 	}
-
+	
 	msg := string(msgByte)
-
+	
 	switch e.Level {
 	case level.PanicLevel:
 		return h.Writer.Crit(msg)

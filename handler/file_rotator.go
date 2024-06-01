@@ -10,7 +10,7 @@ import (
 	"sort"
 	"strings"
 	"time"
-
+	
 	"github.com/ml444/glog/util"
 )
 
@@ -20,7 +20,7 @@ type IRotator interface {
 	Close() error
 }
 
-func GetRotator4Config(cfg *FileHandlerConfig) (IRotator, error) {
+func GetRotator4Config(cfg *FileConfig) (IRotator, error) {
 	switch cfg.RotatorType {
 	case FileRotatorTypeSize:
 		return NewSizeRotator(cfg)
@@ -35,12 +35,12 @@ func GetRotator4Config(cfg *FileHandlerConfig) (IRotator, error) {
 
 type SizeRotator struct {
 	file     *os.File
-	cfg      *FileHandlerConfig
+	cfg      *FileConfig
 	filePath string
 	maxSize  int64
 }
 
-func NewSizeRotator(cfg *FileHandlerConfig) (*SizeRotator, error) {
+func NewSizeRotator(cfg *FileConfig) (*SizeRotator, error) {
 	r := SizeRotator{
 		cfg:     cfg,
 		maxSize: cfg.MaxFileSize,
@@ -126,7 +126,7 @@ func (r *SizeRotator) DoRollover() (*os.File, error) {
 			}
 		}
 	}
-
+	
 	f, err := open(r.filePath)
 	if err != nil {
 		return nil, err
@@ -143,7 +143,7 @@ func (r *SizeRotator) Close() error {
 }
 
 type TimeRotator struct {
-	cfg        *FileHandlerConfig
+	cfg        *FileConfig
 	file       *os.File
 	filePath   string
 	interval   int64
@@ -151,7 +151,7 @@ type TimeRotator struct {
 	reCompile  *regexp.Regexp
 }
 
-func NewTimeRotator(cfg *FileHandlerConfig) (*TimeRotator, error) {
+func NewTimeRotator(cfg *FileConfig) (*TimeRotator, error) {
 	r := &TimeRotator{cfg: cfg}
 	err := r.init()
 	if err != nil {
@@ -169,12 +169,12 @@ func (r *TimeRotator) init() error {
 	}
 	r.rolloverAt = getRolloverSecond(r.interval)
 	r.reCompile = regexp.MustCompile(r.cfg.ReMatch)
-
+	
 	err := mkdir(r.cfg.FileDir)
 	if err != nil {
 		panic(err)
 	}
-
+	
 	r.filePath = r.getFilepath()
 	return nil
 }
@@ -244,10 +244,10 @@ func (r *TimeRotator) DoRollover() (*os.File, error) {
 			}
 		}
 	}
-
+	
 	// next rolloverAt
 	r.rolloverAt = curTime.Unix() + r.interval
-
+	
 	f, err := open(r.filePath)
 	if err != nil {
 		return nil, err
@@ -263,7 +263,7 @@ func (r *TimeRotator) Close() error {
 }
 
 type TimeAndSizeRotator struct {
-	cfg                *FileHandlerConfig
+	cfg                *FileConfig
 	file               *os.File
 	filename           string
 	filePath           string
@@ -276,7 +276,7 @@ type TimeAndSizeRotator struct {
 	reCompile          *regexp.Regexp
 }
 
-func NewTimeAndSizeRotator(cfg *FileHandlerConfig) (*TimeAndSizeRotator, error) {
+func NewTimeAndSizeRotator(cfg *FileConfig) (*TimeAndSizeRotator, error) {
 	r := &TimeAndSizeRotator{
 		cfg:         cfg,
 		filename:    cfg.FileName,
@@ -298,18 +298,18 @@ func (r *TimeAndSizeRotator) init() error {
 	if r.cfg == nil {
 		return errors.New("config is nil")
 	}
-
+	
 	if r.interval <= 0 {
 		r.interval = 60 * 60 // default 1 hour
 	}
 	r.rolloverAt = getRolloverSecond(r.interval)
 	r.reCompile = regexp.MustCompile(r.cfg.ReMatch)
-
+	
 	err := mkdir(r.cfg.FileDir)
 	if err != nil {
 		panic(err)
 	}
-
+	
 	r.filePath = r.getNewFilepath()
 	return nil
 }
@@ -350,7 +350,7 @@ func (r *TimeAndSizeRotator) NeedRollover(msg []byte) (*os.File, bool, error) {
 
 func (r *TimeAndSizeRotator) DoRollover() (*os.File, error) {
 	var err error
-
+	
 	if r.file != nil {
 		err = r.file.Sync()
 		if err != nil {
@@ -368,7 +368,7 @@ func (r *TimeAndSizeRotator) DoRollover() (*os.File, error) {
 		}
 		parties = append(parties, r.cfg.FileSuffix, r.rolloverTimeSuffix)
 		dfn := filepath.Join(r.cfg.FileDir, strings.Join(parties, "."))
-
+		
 		if IsFileExist(dfn) {
 			err = os.Remove(dfn)
 			if err != nil {
@@ -416,7 +416,7 @@ func (r *TimeAndSizeRotator) DoRollover() (*os.File, error) {
 	}
 	// next rolloverAt
 	r.rolloverAt = time.Now().Unix() + r.interval
-
+	
 	r.filePath = r.getNewFilepath()
 	r.file, err = open(r.filePath)
 	if err != nil {

@@ -11,48 +11,60 @@ type IHandler interface {
 	Close() error
 }
 
-type HandlerType int
+type Type int
 
 const (
-	HandlerTypeStdout HandlerType = 0
-	HandlerTypeFile   HandlerType = 1
-	HandlerTypeStream HandlerType = 2
-	HandlerTypeSyslog HandlerType = 3
+	TypeStdout Type = 0
+	TypeFile   Type = 1
+	TypeStream Type = 2
+	TypeSyslog Type = 3
 )
 
-type HandlerConfig struct {
+type Config struct {
 	ExternalHandler IHandler
-	HandlerType     HandlerType
-	File            FileHandlerConfig
-	Stream          StreamHandlerConfig
-	Syslog          SyslogHandlerConfig
-
-	Formatter formatter.FormatterConfig
-	Filter    filter.IFilter
+	
+	Type   Type
+	File   *FileConfig
+	Stream *StreamConfig
+	Syslog *SyslogConfig
+	
+	FormatConfig *formatter.Config
+	Filter       filter.IFilter
 }
 
-type StreamHandlerConfig struct {
+func NewConfig(opts ...Opt) *Config {
+	cfg := &Config{}
+	// todo 是否需要默认值
+	
+	for _, opt := range opts {
+		opt(cfg)
+	}
+	
+	return cfg
+}
+
+type StreamConfig struct {
 	Streamer IStreamer
 }
-type SyslogHandlerConfig struct {
+type SyslogConfig struct {
 	Network  string
 	Address  string
 	Tag      string
 	Priority int
 }
 
-func GetNewHandler(handlerCfg HandlerConfig) (IHandler, error) {
+func GetNewHandler(handlerCfg *Config) (IHandler, error) {
 	if handlerCfg.ExternalHandler != nil {
 		return handlerCfg.ExternalHandler, nil
 	}
-	switch handlerCfg.HandlerType {
-	case HandlerTypeFile:
-		return NewFileHandler(&handlerCfg)
-	case HandlerTypeStream:
-		return NewStreamHandler(&handlerCfg)
-	case HandlerTypeSyslog:
-		return NewSyslogHandler(&handlerCfg)
+	switch handlerCfg.Type {
+	case TypeFile:
+		return NewFileHandler(handlerCfg)
+	case TypeStream:
+		return NewStreamHandler(handlerCfg)
+	case TypeSyslog:
+		return NewSyslogHandler(handlerCfg)
 	default:
-		return NewDefaultHandler(&handlerCfg)
+		return NewDefaultHandler(handlerCfg)
 	}
 }

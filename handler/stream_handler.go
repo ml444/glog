@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
-
+	
 	"github.com/ml444/glog/filter"
 	"github.com/ml444/glog/formatter"
 	"github.com/ml444/glog/message"
@@ -23,13 +23,13 @@ type StreamHandler struct {
 	filter    filter.IFilter
 }
 
-func NewStreamHandler(handlerCfg *HandlerConfig) (*StreamHandler, error) {
+func NewStreamHandler(handlerCfg *Config) (*StreamHandler, error) {
 	if handlerCfg.Stream.Streamer == nil {
 		return nil, errors.New("streamer is nil")
 	}
 	return &StreamHandler{
 		filter:    handlerCfg.Filter,
-		formatter: formatter.GetNewFormatter(handlerCfg.Formatter),
+		formatter: formatter.GetNewFormatter(handlerCfg.FormatConfig),
 		stream:    handlerCfg.Stream.Streamer,
 	}, nil
 }
@@ -56,12 +56,12 @@ func (h *StreamHandler) Emit(record *message.Entry) error {
 			return fmt.Errorf("filter out this msg: %v", record)
 		}
 	}
-
+	
 	msgByte, err := h.format(record)
 	if err != nil {
 		return err
 	}
-
+	
 	err = h.emit(msgByte)
 	return err
 }
@@ -71,8 +71,8 @@ func (h *StreamHandler) Close() error {
 	return nil
 }
 
-//// Flush : Flushes the stream.
-//func (h *StreamHandler) Flush() {
+// // Flush : Flushes the stream.
+// func (h *StreamHandler) Flush() {
 //	/*
 //	   	self.acquire()
 //	      try:
@@ -81,7 +81,7 @@ func (h *StreamHandler) Close() error {
 //	      finally:
 //	   	   self.release()
 //	*/
-//}
-//func (h *StreamHandler) SetStream(stream filter.IStreamer) {
+// }
+// func (h *StreamHandler) SetStream(stream filter.IStreamer) {
 //	h.stream = stream
-//}
+// }

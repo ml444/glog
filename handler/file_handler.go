@@ -5,10 +5,18 @@ import (
 	"io"
 	"os"
 	"time"
-
+	
 	"github.com/ml444/glog/filter"
 	"github.com/ml444/glog/formatter"
 	"github.com/ml444/glog/message"
+)
+
+const (
+	DefaultMaxFileSize   = 10 * 1024 * 1024 // 默认文件大小
+	DefaultBackupCount   = 10               // 默认备份数量
+	DefaultBulkWriteSize = 10 * 1024 * 1024 // 默认写入缓存大小
+	DefaultInterval      = 60 * 60          // 默认轮转间隔
+	DefaultFileSuffix    = "log"            // 默认文件后缀
 )
 
 type RotatorType int
@@ -31,50 +39,66 @@ const (
 	FileRotatorReMatch3 = "^\\d{4}-\\d{2}-\\d{2}_\\d{2}-\\d{2}-\\d{2}(\\.\\w+)?$"
 )
 
-type FileHandlerConfig struct {
+type FileConfig struct {
 	FileDir       string
 	FileName      string
 	MaxFileSize   int64
 	BackupCount   int
 	BulkWriteSize int
-
-	RotatorType RotatorType
-	//When          RotatorWhenType // used in TimeRotator and TimeAndSizeRotator
-	Interval int64 // unit: second. used in TimeRotator and TimeAndSizeRotator.
-	//IntervalStep  int64
+	
+	RotatorType   RotatorType
+	Interval      int64 // unit: second. used in TimeRotator and TimeAndSizeRotator.
 	TimeSuffixFmt string
 	ReMatch       string
 	FileSuffix    string
-
+	
 	MultiProcessWrite bool
-
+	
 	ErrCallback func(buf []byte, err error)
+}
+
+func NewFileConfig(opts ...FileOpt) *FileConfig {
+	cfg := &FileConfig{
+		MaxFileSize:   DefaultMaxFileSize,
+		BackupCount:   DefaultBackupCount,
+		BulkWriteSize: DefaultBulkWriteSize,
+		Interval:      DefaultInterval,
+		TimeSuffixFmt: FileRotatorSuffixFmt1,
+		ReMatch:       FileRotatorReMatch1,
+		FileSuffix:    DefaultFileSuffix,
+	}
+	
+	for _, opt := range opts {
+		opt(cfg)
+	}
+	
+	return cfg
 }
 
 type FileHandler struct {
 	formatter formatter.IFormatter
 	filter    filter.IFilter
 	rotator   IRotator
-
+	
 	bulkWriteSize int
 	bufChan       chan []byte
 	doneChan      chan bool
 	done          bool
-
+	
 	ErrorCallback func(buf []byte, err error)
 }
 
-func NewFileHandler(handlerCfg *HandlerConfig) (*FileHandler, error) {
+func NewFileHandler(handlerCfg *Config) (*FileHandler, error) {
 	// Redirects the standard error output to the specified file,
 	// in order to preserve the panic information during panic.
 	// rewriteStderr(handlerCfg.File.FileDir, config.GlobalConfig.LoggerName)
-
-	rotator, err := GetRotator4Config(&handlerCfg.File)
+	
+	rotator, err := GetRotator4Config(handlerCfg.File)
 	if err != nil {
 		return nil, err
 	}
 	h := &FileHandler{
-		formatter:     formatter.GetNewFormatter(handlerCfg.Formatter),
+		formatter:     formatter.GetNewFormatter(handlerCfg.FormatConfig),
 		filter:        handlerCfg.Filter,
 		rotator:       rotator,
 		bulkWriteSize: handlerCfg.File.BulkWriteSize,
@@ -113,7 +137,7 @@ func (h *FileHandler) flushWorker() {
 					return
 				}
 			}
-
+			
 		}
 	}
 }
@@ -174,16 +198,16 @@ func (h *FileHandler) Emit(entry *message.Entry) error {
 			return filter.ErrFilterOut
 		}
 	}
-
+	
 	if h.formatter == nil {
 		return errors.New("formatter is nil")
 	}
-
+	
 	msgByte, err := h.formatter.Format(entry)
 	if err != nil {
 		return err
 	}
-
+	
 	// h.bufChan <- msgByte
 	select {
 	case h.bufChan <- msgByte:

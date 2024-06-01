@@ -21,10 +21,10 @@ type SyslogHandler struct {
 	filter    filter.IFilter
 }
 
-func NewSyslogHandler(handlerCfg *HandlerConfig) (*SyslogHandler, error) {
+func NewSyslogHandler(handlerCfg *Config) (*SyslogHandler, error) {
 	h := &SyslogHandler{
 		Writer:    os.Stdout,
-		formatter: formatter.GetNewFormatter(handlerCfg.Formatter),
+		formatter: formatter.GetNewFormatter(handlerCfg.FormatConfig),
 		filter:    handlerCfg.Filter,
 	}
 	return h, nil
