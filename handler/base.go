@@ -32,10 +32,14 @@ type Config struct {
 	Filter       filter.IFilter
 }
 
-func NewConfig(opts ...Opt) *Config {
-	cfg := &Config{}
-	// todo 是否需要默认值
-	
+func NewDefaultConfig() *Config {
+	return &Config{
+		Type: TypeStdout,
+	}
+}
+
+func NewConfig(opts ...Option) *Config {
+	cfg := NewDefaultConfig()
 	for _, opt := range opts {
 		opt(cfg)
 	}

@@ -12,7 +12,7 @@ import (
 
 var (
 	logger ILogger
-	Config = config.NewDefaultConfig()
+	Config = config.NewConfig()
 )
 
 func init() {

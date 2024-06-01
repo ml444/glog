@@ -82,7 +82,7 @@ var (
 // NewLogger returns a new ILogger
 func NewLogger(cfg *config.Config) (*Logger, error) {
 	if cfg == nil {
-		cfg = config.NewDefaultConfig()
+		cfg = config.NewConfig()
 	}
 	l := Logger{
 		Name:           cfg.LogConfig.Name,

@@ -1,17 +1,24 @@
 package config
 
-import (
-	"time"
-	
-	"github.com/ml444/glog/handler"
-	"github.com/ml444/glog/level"
-	"github.com/ml444/glog/message"
-)
+type Option func(cfg *Config)
 
-const (
-	DefaultTimestampFormat       = time.RFC3339
-	defaultMaxFileSize     int64 = 1024 * 1024 * 1024
-)
+func WithGeneralConfig(generalConfig *GeneralConfig) Option {
+	return func(cfg *Config) {
+		cfg.GeneralConfig = generalConfig
+	}
+}
+
+func WithLogConfig(logConfig *LogConfig) Option {
+	return func(cfg *Config) {
+		cfg.LogConfig = logConfig
+	}
+}
+
+func WithReportConfig(reportConfig *ReportConfig) Option {
+	return func(cfg *Config) {
+		cfg.ReportConfig = reportConfig
+	}
+}
 
 type Config struct {
 	*GeneralConfig
@@ -19,28 +26,19 @@ type Config struct {
 	*ReportConfig
 }
 
-type GeneralConfig struct {
-	ExitOnFatal    bool
-	ThrowOnPanic   bool
-	IsRecordCaller bool
-	EnableReport   bool
+func NewDefaultConfig() *Config {
+	return &Config{
+		GeneralConfig: NewGeneralConfig(),
+		LogConfig:     NewLogConfig(),
+		ReportConfig:  NewReportConfig(),
+	}
+}
+
+func NewConfig(opts ...Option) *Config {
+	cfg := NewDefaultConfig()
+	for _, opt := range opts {
+		opt(cfg)
+	}
 	
-	ExitFunc    func(code int)
-	TradeIDFunc func(entry *message.Entry) string
-	OnError     func(msg *message.Entry, err error)
-}
-
-type BaseLogConfig struct {
-	CacheSize int
-	Level     level.LogLevel
-	Config    *handler.Config
-}
-
-type LogConfig struct {
-	*BaseLogConfig
-	Name string
-}
-
-type ReportConfig struct {
-	*BaseLogConfig
+	return cfg
 }

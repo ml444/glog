@@ -13,7 +13,6 @@ import (
 )
 
 type SyslogHandler struct {
-	// BaseHandler
 	Writer   *syslog.Writer
 	network  string
 	raddr    string

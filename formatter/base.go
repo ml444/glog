@@ -3,6 +3,7 @@ package formatter
 import (
 	"os"
 	"strconv"
+	"time"
 	
 	"github.com/ml444/glog/message"
 	"github.com/ml444/glog/util"
@@ -54,9 +55,15 @@ type Config struct {
 	PrettyPrint       bool // [json|xml formatter] will indent all json logs.
 }
 
-func NewConfig(opts ...Opt) *Config {
-	cfg := &Config{}
-	// todo 是否需要默认值
+func NewDefaultConfig() *Config {
+	return &Config{
+		Type:            TypeJson,
+		TimestampFormat: time.RFC3339,
+	}
+}
+
+func NewConfig(opts ...Option) *Config {
+	cfg := NewDefaultConfig()
 	
 	for _, opt := range opts {
 		opt(cfg)
