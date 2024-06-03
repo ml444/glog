@@ -7,131 +7,93 @@ import (
 	"regexp"
 	"strconv"
 
-	"github.com/ml444/glog/level"
 	"github.com/ml444/glog/message"
-	"github.com/ml444/glog/util"
 )
 
-// const (
-//	red    = 31
-//	yellow = 33
-//	blue   = 36
-//	gray   = 37
-// )
+type writeFunc func(b *bytes.Buffer, m *message.Message)
 
-const (
-	colorRed = uint8(iota + 91)
-	colorGreen
-	colorYellow
-	colorBlue
-	colorPurple
-)
-const defaultBufferGrow = 128
-
-var (
-	red      = fmt.Sprintf("\x1b[%dm", colorRed)
-	green    = fmt.Sprintf("\x1b[%dm", colorGreen)
-	yellow   = fmt.Sprintf("\x1b[%dm", colorYellow)
-	blue     = fmt.Sprintf("\x1b[%dm", colorBlue)
-	cyan     = fmt.Sprintf("\x1b[%dm", 36)
-	purple   = fmt.Sprintf("\x1b[%dm", colorPurple)
-	colorEnd = "\x1b[0m"
-)
-
-func Color(l level.LogLevel) string {
-	switch l {
-	case level.DebugLevel:
-		return blue
-	case level.PrintLevel:
-		return cyan
-	case level.InfoLevel:
-		return green
-	case level.WarnLevel:
-		return yellow
-	default:
-		return red
-	}
+type TextFormatterConfig struct {
+	BaseFormatterConfig
+	PatternStyle           string // [text formatter] style template for formatting the data, which determines the order of the fields and the presentation style.
+	EnableQuote            bool   // [text formatter] keep the string literal, while escaping safely if necessary.
+	EnableQuoteEmptyFields bool   // [text formatter] when the value of field is empty, keep the string literal.
+	//DisableColors          bool   // [text formatter] adding color rendering to the output.
 }
-
-type writeFunc func(b *bytes.Buffer, entry *message.Entry)
 
 // TextFormatter formats logs into text
 type TextFormatter struct {
+	*BaseFormatter
 	isCustomizedWritePattern bool
 	EnableQuote              bool
 	EnableQuoteEmptyFields   bool
 	DisableColors            bool
-	TimestampFormat          string
-	msgPrefix                string
-	msgSuffix                string
-	sepListLen               int
-	sepList                  []string
-	writeFuncList            []writeFunc
+	//TimestampFormat          string
+	msgPrefix     string
+	msgSuffix     string
+	sepListLen    int
+	sepList       []string
+	writeFuncList []writeFunc
 }
 
-func NewTextFormatter(formatterCfg FormatterConfig) *TextFormatter {
+func NewTextFormatter(cfg TextFormatterConfig) *TextFormatter {
 	textFormatter := TextFormatter{
-		TimestampFormat:        formatterCfg.TimestampFormat,
-		EnableQuote:            formatterCfg.EnableQuote,
-		EnableQuoteEmptyFields: formatterCfg.EnableQuoteEmptyFields,
-		DisableColors:          formatterCfg.DisableColors,
+		BaseFormatter: NewBaseFormatter(cfg.BaseFormatterConfig),
+		//TimestampFormat:        cfg.TimestampFormat,
+		EnableQuote:            cfg.EnableQuote,
+		EnableQuoteEmptyFields: cfg.EnableQuoteEmptyFields,
+		DisableColors:          !cfg.EnableColor,
 	}
-	if formatterCfg.PatternStyle != "" {
+	if cfg.PatternStyle != "" {
 		textFormatter.isCustomizedWritePattern = true
-		textFormatter.parseWriteFuncList(formatterCfg.PatternStyle)
+		textFormatter.parseWriteFuncList(cfg.PatternStyle)
 	}
 	return &textFormatter
 }
 
-// Format renders a single log entry
+// Format renders log's message into bytes
 func (f *TextFormatter) Format(entry *message.Entry) ([]byte, error) {
-	if c := entry.Caller; c != nil {
-		entry.FileName = c.File
-		// entry.CallerName = c.Function
-		entry.CallerLine = c.Line
-		entry.FilePath, entry.CallerName = util.ParsePackageName(c.Function)
-	}
+	m := f.ConvertToMessage(entry)
 	b := &bytes.Buffer{}
 	b.Grow(defaultBufferGrow)
 	if f.isCustomizedWritePattern {
-		f.ColorRenderV2(b, entry)
+		f.ColorRenderV2(b, m)
 	} else {
-		f.ColorRender(b, entry)
+		f.ColorRender(b, m)
 	}
 
 	b.WriteByte('\n')
 	return b.Bytes(), nil
 }
 
-func (f *TextFormatter) ColorRender(b *bytes.Buffer, entry *message.Entry) {
-	f.writeLogName(b, entry)
+func (f *TextFormatter) ColorRender(b *bytes.Buffer, m *message.Message) {
+	f.writeLogName(b, m)
 	b.WriteByte('(')
-	f.writePid(b, entry)
+	f.writePid(b, m)
 	b.WriteByte(',')
-	f.writeRoutineID(b, entry)
+	f.writeRoutineID(b, m)
 	b.WriteByte(')')
 	b.WriteByte(' ')
-	f.writeDateTime(b, entry)
-	b.WriteByte('.')
-	f.writeTimeMs(b, entry)
+	f.writeDateTime(b, m)
+	//b.WriteByte('.')
+	//f.writeTimeMs(b, m)
 	b.WriteByte(' ')
 	b.WriteByte('<')
-	f.writeTradeID(b, entry)
+	f.writeTradeID(b, m)
 	b.WriteByte('>')
 	b.WriteByte(' ')
-	f.writeLogLevel(b, entry)
+	f.writeLogLevel(b, m)
 	b.WriteByte(' ')
-	f.writeCaller(b, entry)
+	f.writeCaller(b, m)
 	b.WriteByte(' ')
-	f.writeMessage(b, entry)
+	f.writeMessage(b, m)
 }
 
-func (f *TextFormatter) ColorRenderV2(b *bytes.Buffer, entry *message.Entry) {
+func (f *TextFormatter) ColorRenderV2(b *bytes.Buffer, m *message.Message) {
 	if f.msgPrefix != "" {
 		b.WriteString(f.msgPrefix)
 	}
 	for i, wFunc := range f.writeFuncList {
-		wFunc(b, entry)
+		wFunc(b, m)
 		if i < f.sepListLen && f.sepList[i] != "" {
 			b.WriteString(f.sepList[i])
 		}
@@ -152,79 +114,69 @@ func (f *TextFormatter) needsQuoting(text string) bool {
 	return false
 }
 
-func (f *TextFormatter) writeLogName(b *bytes.Buffer, entry *message.Entry) {
-	if f.DisableColors {
-		b.WriteString(entry.LogName)
-	} else {
-		b.WriteString(purple + entry.LogName + colorEnd)
-	}
+func (f *TextFormatter) writeLogName(b *bytes.Buffer, m *message.Message) {
+	b.WriteString(m.Service)
 }
 
-func (f *TextFormatter) writePid(b *bytes.Buffer, _ *message.Entry) {
+func (f *TextFormatter) writePid(b *bytes.Buffer, m *message.Message) {
 	b.WriteString(pidStr)
 }
 
-func (f *TextFormatter) writeIP(b *bytes.Buffer, _ *message.Entry) {
+func (f *TextFormatter) writeIP(b *bytes.Buffer, m *message.Message) {
 	b.WriteString(localIP)
 }
 
-func (f *TextFormatter) writeHostName(b *bytes.Buffer, _ *message.Entry) {
+func (f *TextFormatter) writeHostName(b *bytes.Buffer, m *message.Message) {
 	b.WriteString(localHostname)
 }
 
-func (f *TextFormatter) writeRoutineID(b *bytes.Buffer, entry *message.Entry) {
-	b.WriteString(strconv.FormatInt(entry.RoutineID, 10))
+func (f *TextFormatter) writeRoutineID(b *bytes.Buffer, m *message.Message) {
+	b.WriteString(strconv.FormatInt(m.RoutineID, 10))
 }
 
-func (f *TextFormatter) writeDateTime(b *bytes.Buffer, entry *message.Entry) {
-	b.WriteString(util.FormatDateTime(entry.Time))
-	// b.WriteString(fmt.Sprintf(".%05d ", entry.Time.Nanosecond()/100000))
+func (f *TextFormatter) writeDateTime(b *bytes.Buffer, m *message.Message) {
+	b.WriteString(m.Datetime)
 }
 
-func (f *TextFormatter) writeTimeMs(b *bytes.Buffer, entry *message.Entry) {
-	fmt.Fprintf(b, "%05d ", entry.Time.Nanosecond()/100000)
-}
-
-func (f *TextFormatter) writeTradeID(b *bytes.Buffer, entry *message.Entry) {
-	if entry.TraceID != "" {
-		b.WriteString(entry.TraceID)
+func (f *TextFormatter) writeTradeID(b *bytes.Buffer, m *message.Message) {
+	if m.TraceID != "" {
+		b.WriteString(m.TraceID)
 	}
 }
 
-func (f *TextFormatter) writeLogLevel(b *bytes.Buffer, entry *message.Entry) {
-	if f.DisableColors {
-		b.WriteString(entry.Level.ShortString())
-	} else {
-		b.WriteString(Color(entry.Level) + entry.Level.ShortString() + colorEnd)
+func (f *TextFormatter) writeLogLevel(b *bytes.Buffer, m *message.Message) {
+	b.WriteString(m.Level)
+}
+
+//func (f *TextFormatter) writeLogLevelNo(b *bytes.Buffer, m *message.Message) {
+//	if f.DisableColors {
+//		b.WriteString(strconv.FormatUint(uint64(m.Level), 10))
+//	} else {
+//		b.WriteString(Color(m.Level) + strconv.FormatUint(uint64(m.Level), 10) + colorEnd)
+//	}
+//}
+
+func (f *TextFormatter) writeFileName(b *bytes.Buffer, m *message.Message) {
+	b.WriteString(path.Base(m.CallerPath))
+}
+
+func (f *TextFormatter) writeFilepath(b *bytes.Buffer, m *message.Message) {
+	b.WriteString(m.CallerPath)
+}
+
+func (f *TextFormatter) writeFuncLine(b *bytes.Buffer, m *message.Message) {
+	b.WriteString(strconv.FormatInt(int64(m.CallerLine), 10))
+}
+
+func (f *TextFormatter) writeFuncName(b *bytes.Buffer, m *message.Message) {
+	b.WriteString(m.CallerName)
+}
+
+func (f *TextFormatter) writeFullCaller(b *bytes.Buffer, m *message.Message) {
+	if m.CallerPath == "" {
+		return
 	}
-}
-
-func (f *TextFormatter) writeLogLevelNo(b *bytes.Buffer, entry *message.Entry) {
-	if f.DisableColors {
-		b.WriteString(strconv.FormatUint(uint64(entry.Level), 10))
-	} else {
-		b.WriteString(Color(entry.Level) + strconv.FormatUint(uint64(entry.Level), 10) + colorEnd)
-	}
-}
-
-func (f *TextFormatter) writeFilepath(b *bytes.Buffer, entry *message.Entry) {
-	b.WriteString(entry.FilePath)
-}
-
-func (f *TextFormatter) writeFileName(b *bytes.Buffer, entry *message.Entry) {
-	b.WriteString(path.Base(entry.FileName))
-}
-
-func (f *TextFormatter) writeFuncLine(b *bytes.Buffer, entry *message.Entry) {
-	b.WriteString(strconv.FormatInt(int64(entry.CallerLine), 10))
-}
-
-func (f *TextFormatter) writeFuncName(b *bytes.Buffer, entry *message.Entry) {
-	b.WriteString(entry.CallerName)
-}
-
-func (f *TextFormatter) writeFullCaller(b *bytes.Buffer, entry *message.Entry) {
-	s := path.Join(entry.FilePath, path.Base(entry.FileName)) + ":" + strconv.FormatInt(int64(entry.CallerLine), 10) + ":" + entry.CallerName
+	s := m.CallerPath + ":" + strconv.FormatInt(int64(m.CallerLine), 10) + ":" + m.CallerName
 	if f.DisableColors {
 		b.WriteString(s)
 	} else {
@@ -232,8 +184,11 @@ func (f *TextFormatter) writeFullCaller(b *bytes.Buffer, entry *message.Entry) {
 	}
 }
 
-func (f *TextFormatter) writeCaller(b *bytes.Buffer, entry *message.Entry) {
-	s := path.Base(entry.FileName) + ":" + strconv.FormatInt(int64(entry.CallerLine), 10) + ":" + entry.CallerName
+func (f *TextFormatter) writeCaller(b *bytes.Buffer, m *message.Message) {
+	if m.CallerPath == "" {
+		return
+	}
+	s := path.Base(m.CallerPath) + ":" + strconv.FormatInt(int64(m.CallerLine), 10) + ":" + m.CallerName
 	if f.DisableColors {
 		b.WriteString(s)
 	} else {
@@ -241,8 +196,8 @@ func (f *TextFormatter) writeCaller(b *bytes.Buffer, entry *message.Entry) {
 	}
 }
 
-func (f *TextFormatter) writeMessage(b *bytes.Buffer, entry *message.Entry) {
-	stringVal := entry.Message
+func (f *TextFormatter) writeMessage(b *bytes.Buffer, m *message.Message) {
+	stringVal := m.Message
 
 	if !f.needsQuoting(stringVal) {
 		b.WriteString(stringVal)
@@ -256,23 +211,23 @@ func (f *TextFormatter) parseWriteFuncList(src string) {
 		return
 	}
 	writeFuncMap := map[string]writeFunc{
-		"LoggerName": f.writeLogName,
-		"FullCaller": f.writeFullCaller,
-		"Caller":     f.writeCaller,
-		"Pid":        f.writePid,
-		"RoutineId":  f.writeRoutineID,
-		"Ip":         f.writeIP,
-		"HostName":   f.writeHostName,
-		"Path":       f.writeFilepath,
-		"File":       f.writeFileName,
-		"Line":       f.writeFuncLine,
-		"Func":       f.writeFuncName,
-		"TradeId":    f.writeTradeID,
-		"LevelName":  f.writeLogLevel,
-		"LevelNo":    f.writeLogLevelNo,
-		"DateTime":   f.writeDateTime,
-		"Msecs":      f.writeTimeMs,
-		"Message":    f.writeMessage,
+		"LoggerName":  f.writeLogName,
+		"Caller":      f.writeFullCaller,
+		"ShortCaller": f.writeCaller,
+		"Pid":         f.writePid,
+		"RoutineId":   f.writeRoutineID,
+		"Ip":          f.writeIP,
+		"HostName":    f.writeHostName,
+		"CallerFile":  f.writeFileName,
+		"CallerPath":  f.writeFilepath,
+		"CallerLine":  f.writeFuncLine,
+		"CallerName":  f.writeFuncName,
+		"TradeId":     f.writeTradeID,
+		"LevelName":   f.writeLogLevel,
+		//"LevelNo":    f.writeLogLevelNo,
+		"DateTime": f.writeDateTime,
+		//"Msecs":      f.writeTimeMs,
+		"Message": f.writeMessage,
 	}
 	regexpPattern := regexp.MustCompile(`%\[(\w+)?\][sdfwvtq]`)
 	result := regexpPattern.FindAllStringSubmatchIndex(src, -1)

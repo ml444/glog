@@ -12,6 +12,13 @@ import (
 	"github.com/ml444/glog/message"
 )
 
+type SyslogHandlerConfig struct {
+	Network  string
+	Address  string
+	Tag      string
+	Priority int
+}
+
 type SyslogHandler struct {
 	// BaseHandler
 	Writer   *syslog.Writer
@@ -24,15 +31,14 @@ type SyslogHandler struct {
 	filter    filter.IFilter
 }
 
-func NewSyslogHandler(handlerCfg *HandlerConfig) (*SyslogHandler, error) {
-	cfg := handlerCfg.Syslog
+func NewSyslogHandler(cfg *SyslogHandlerConfig, fm formatter.IFormatter, ft filter.IFilter) (*SyslogHandler, error) {
 	h := &SyslogHandler{
 		network:   cfg.Network,
 		raddr:     cfg.Address,
 		priority:  cfg.Priority,
 		tag:       cfg.Tag,
-		formatter: formatter.GetNewFormatter(handlerCfg.Formatter),
-		filter:    handlerCfg.Filter,
+		formatter: fm,
+		filter:    ft,
 	}
 	err := h.Init()
 	if err != nil {

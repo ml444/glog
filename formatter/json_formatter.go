@@ -8,24 +8,29 @@ import (
 	"github.com/ml444/glog/message"
 )
 
+type JSONFormatterConfig struct {
+	BaseFormatterConfig
+	DisableHTMLEscape bool // [json formatter] allows disabling html escaping in output.
+	PrettyPrint       bool // [json|xml formatter] will indent all json logs.
+	//DisableTimestamp  bool // [json formatter] allows disabling automatic timestamps in output.
+}
+
 type JSONFormatter struct {
-	timestampFormat string
-	// disableTimestamp  bool
+	*BaseFormatter
 	disableHTMLEscape bool
 	prettyPrint       bool
 }
 
-func NewJSONFormatter(formatterCfg FormatterConfig) *JSONFormatter {
+func NewJSONFormatter(cfg JSONFormatterConfig) *JSONFormatter {
 	return &JSONFormatter{
-		timestampFormat:   formatterCfg.TimestampFormat,
-		disableHTMLEscape: formatterCfg.DisableHTMLEscape,
-		prettyPrint:       formatterCfg.PrettyPrint,
-		// disableTimestamp:  jsonCfg.DisableTimestamp,
+		BaseFormatter:     NewBaseFormatter(cfg.BaseFormatterConfig),
+		disableHTMLEscape: cfg.DisableHTMLEscape,
+		prettyPrint:       cfg.PrettyPrint,
 	}
 }
 
 func (f *JSONFormatter) Format(entry *message.Entry) ([]byte, error) {
-	record := entry.FillRecord(f.timestampFormat)
+	record := f.ConvertToMessage(entry)
 	b := &bytes.Buffer{}
 	encoder := json.NewEncoder(b)
 	encoder.SetEscapeHTML(!f.disableHTMLEscape)

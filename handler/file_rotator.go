@@ -20,7 +20,7 @@ type IRotator interface {
 	Close() error
 }
 
-func GetRotator4Config(cfg *FileHandlerConfig) (IRotator, error) {
+func NewRotator(cfg *FileHandlerConfig) (IRotator, error) {
 	switch cfg.RotatorType {
 	case FileRotatorTypeSize:
 		return NewSizeRotator(cfg)

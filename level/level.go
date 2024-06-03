@@ -8,7 +8,8 @@ import (
 type LogLevel int8
 
 const (
-	DebugLevel LogLevel = iota + 1
+	NoneLevel LogLevel = iota
+	DebugLevel
 	PrintLevel
 	InfoLevel
 	WarnLevel
@@ -21,19 +22,19 @@ const (
 func (lvl LogLevel) String() string {
 	switch lvl {
 	case DebugLevel:
-		return "debug"
+		return "DEBUG"
 	case PrintLevel:
-		return "print"
+		return "PRINT"
 	case InfoLevel:
-		return "info"
+		return "INFO"
 	case WarnLevel:
-		return "warn"
+		return "WARN"
 	case ErrorLevel:
-		return "error"
+		return "ERROR"
 	case PanicLevel:
-		return "panic"
+		return "PANIC"
 	case FatalLevel:
-		return "fatal"
+		return "FATAL"
 	default:
 		return fmt.Sprintf("Level(%d)", lvl)
 	}
@@ -64,19 +65,19 @@ func ParseLevel(lvl string) (LogLevel, error) {
 func (lvl LogLevel) ShortString() string {
 	switch lvl {
 	case DebugLevel:
-		return "DBG "
+		return "DBG"
 	case InfoLevel:
-		return "INF "
+		return "INF"
 	case WarnLevel:
-		return "WAR "
+		return "WAR"
 	case ErrorLevel:
-		return "ERR "
+		return "ERR"
 	case PrintLevel:
-		return "PRT "
+		return "PRT"
 	case PanicLevel:
-		return "PAN "
+		return "PAN"
 	case FatalLevel:
-		return "FAT "
+		return "FAT"
 	default:
 		return fmt.Sprintf("L(%d) ", lvl)
 	}

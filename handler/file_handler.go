@@ -11,24 +11,12 @@ import (
 	"github.com/ml444/glog/message"
 )
 
-type RotatorType int
+type RotatorType int8
 
 const (
 	FileRotatorTypeTime        RotatorType = 1
 	FileRotatorTypeSize        RotatorType = 2
 	FileRotatorTypeTimeAndSize RotatorType = 3
-)
-
-const (
-	FileRotatorSuffixFmt1 = "20060102150405"
-	FileRotatorSuffixFmt2 = "2006-01-02T15-04-05"
-	FileRotatorSuffixFmt3 = "2006-01-02_15-04-05"
-)
-
-const (
-	FileRotatorReMatch1 = "^\\d{14}(\\.\\w+)?$"
-	FileRotatorReMatch2 = "^\\d{4}-\\d{2}-\\d{2}T\\d{2}-\\d{2}-\\d{2}(\\.\\w+)?$"
-	FileRotatorReMatch3 = "^\\d{4}-\\d{2}-\\d{2}_\\d{2}-\\d{2}-\\d{2}(\\.\\w+)?$"
 )
 
 type FileHandlerConfig struct {
@@ -38,17 +26,14 @@ type FileHandlerConfig struct {
 	BackupCount   int
 	BulkWriteSize int
 
-	RotatorType RotatorType
-	//When          RotatorWhenType // used in TimeRotator and TimeAndSizeRotator
-	Interval int64 // unit: second. used in TimeRotator and TimeAndSizeRotator.
-	//IntervalStep  int64
-	TimeSuffixFmt string
-	ReMatch       string
-	FileSuffix    string
-
+	RotatorType       RotatorType
+	Interval          int64 // unit: second. used in TimeRotator and TimeAndSizeRotator.
+	TimeSuffixFmt     string
+	ReMatch           string
+	FileSuffix        string
 	MultiProcessWrite bool
 
-	ErrCallback func(buf []byte, err error)
+	ErrCallback func(buf interface{}, err error)
 }
 
 type FileHandler struct {
@@ -61,33 +46,29 @@ type FileHandler struct {
 	doneChan      chan bool
 	done          bool
 
-	ErrorCallback func(buf []byte, err error)
+	ErrorCallback func(buf interface{}, err error)
 }
 
-func NewFileHandler(handlerCfg *HandlerConfig) (*FileHandler, error) {
+func NewFileHandler(cfg *FileHandlerConfig, fm formatter.IFormatter, ft filter.IFilter) (*FileHandler, error) {
 	// Redirects the standard error output to the specified file,
 	// in order to preserve the panic information during panic.
 	// rewriteStderr(handlerCfg.File.FileDir, config.GlobalConfig.LoggerName)
 
-	rotator, err := GetRotator4Config(&handlerCfg.File)
+	rotator, err := NewRotator(cfg)
 	if err != nil {
 		return nil, err
 	}
 	h := &FileHandler{
-		formatter:     formatter.GetNewFormatter(handlerCfg.Formatter),
-		filter:        handlerCfg.Filter,
+		formatter:     fm,
+		filter:        ft,
 		rotator:       rotator,
-		bulkWriteSize: handlerCfg.File.BulkWriteSize,
-		ErrorCallback: handlerCfg.File.ErrCallback,
+		bulkWriteSize: cfg.BulkWriteSize,
+		ErrorCallback: cfg.ErrCallback,
+		bufChan:       make(chan []byte, 1024),
+		doneChan:      make(chan bool, 100),
 	}
-	h.init()
-	return h, nil
-}
-
-func (h *FileHandler) init() {
-	h.bufChan = make(chan []byte, 1024)
-	h.doneChan = make(chan bool, 100)
 	go h.flushWorker()
+	return h, nil
 }
 
 func (h *FileHandler) flushWorker() {
@@ -194,10 +175,7 @@ func (h *FileHandler) Emit(entry *message.Entry) error {
 }
 
 func (h *FileHandler) Close() error {
-	select {
-	case h.doneChan <- true: // send
-		// default: // channel full
-	}
+	h.doneChan <- true
 	for i := 0; i < 100; i++ {
 		if h.done {
 			break
