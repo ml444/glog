@@ -1,11 +1,10 @@
 package log
 
 import (
-	"fmt"
 	"testing"
 )
 
-func TestLog(t *testing.T) {
+func testLogs() {
 	Debug("May there be enough clouds in your life to make a beautiful sunset.")
 	Info("May there be enough clouds in your life to make a beautiful sunset.")
 	Error("May there be enough clouds in your life to make a beautiful sunset.")
@@ -20,19 +19,21 @@ func TestLog(t *testing.T) {
 	Panic("Just because someone doesn't love you the way you want them to,", " doesn't mean they don't love you with all they have.")
 	Fatalf("%s alone could waken love!", "Love")
 	Panicf("%s alone could waken love!", "Love")
-	Exit()
+
+}
+func TestLog(t *testing.T) {
+	//defer Stop()
+	InitLog(
+		SetLoggerName("test"),
+		SetLoggerLevel(DebugLevel),
+		//SetDisableRecordCaller(),
+	)
+	testLogs()
 	t.Log("===> PASS!!!")
 }
 
-type AA struct {
-	s string
-}
-
-func (a AA) String() string {
-	return a.s
-}
-func TestName(t *testing.T) {
-	a := AA{s: "is"}
-	t.Log(fmt.Sprint("cml", 12, a, "a man"))
-	fmt.Println("cml", "is", "a man")
+func TestLogWithConfig(t *testing.T) {
+	InitLog(SetWorkerConfigs(NewDefaultFileTextHandlerConfig()))
+	testLogs()
+	t.Log("===> PASS!!!")
 }

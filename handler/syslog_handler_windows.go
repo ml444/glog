@@ -8,7 +8,7 @@ import (
 	"io"
 	"os"
 	"time"
-	
+
 	"github.com/ml444/glog/filter"
 	"github.com/ml444/glog/formatter"
 	"github.com/ml444/glog/message"
@@ -16,16 +16,16 @@ import (
 
 type SyslogHandler struct {
 	Writer io.Writer
-	
+
 	formatter formatter.IFormatter
 	filter    filter.IFilter
 }
 
-func NewSyslogHandler(handlerCfg *HandlerConfig) (*SyslogHandler, error) {
+func NewSyslogHandler(cfg *SyslogHandlerConfig, fm formatter.IFormatter, ft filter.IFilter) (*SyslogHandler, error) {
 	h := &SyslogHandler{
 		Writer:    os.Stdout,
-		formatter: formatter.GetNewFormatter(handlerCfg.Formatter),
-		filter:    handlerCfg.Filter,
+		formatter: fm,
+		filter:    ft,
 	}
 	return h, nil
 }
@@ -47,7 +47,7 @@ func (h *SyslogHandler) Emit(e *message.Entry) error {
 	if err != nil {
 		return err
 	}
-	
+
 	msg := string(msgByte)
 	v := fmt.Sprintf("%s [%s] %s", e.Time.Format(time.RFC3339), e.Level.ShortString(), msg)
 	_, err = h.Writer.Write([]byte(v))

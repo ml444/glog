@@ -2,15 +2,27 @@ package util
 
 import (
 	"fmt"
-	"github.com/ml444/glog/message"
+	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
 )
 
+func ConstructFieldIndexMap(entry interface{}) map[string]int {
+	dataT := reflect.TypeOf(entry)
+	m := map[string]int{}
+	for i := 0; i < dataT.NumField(); i++ {
+		field := dataT.Field(i)
+
+		key := field.Name
+		m[key] = i + 1
+	}
+	return m
+}
+
 // parseFormatTemp
 func parseFormatTemp(src string) string {
-	regexpFieldMap := message.ConstructFieldIndexMap()
+	regexpFieldMap := ConstructFieldIndexMap(nil)
 	regexpReplaceFunc := func(s string) string {
 		v, ok := regexpFieldMap[s]
 		if !ok {

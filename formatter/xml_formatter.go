@@ -8,20 +8,25 @@ import (
 	"github.com/ml444/glog/message"
 )
 
-type XMLFormatter struct {
-	TimestampFormat string
-	PrettyPrint     bool
+type XMLFormatterConfig struct {
+	BaseFormatterConfig
+	PrettyPrint bool // [json|xml formatter] will indent all json logs.
 }
 
-func NewXMLFormatter(formatterCfg FormatterConfig) *XMLFormatter {
+type XMLFormatter struct {
+	*BaseFormatter
+	PrettyPrint bool
+}
+
+func NewXMLFormatter(cfg XMLFormatterConfig) *XMLFormatter {
 	return &XMLFormatter{
-		TimestampFormat: formatterCfg.TimestampFormat,
-		PrettyPrint:     formatterCfg.PrettyPrint,
+		BaseFormatter: NewBaseFormatter(cfg.BaseFormatterConfig),
+		PrettyPrint:   cfg.PrettyPrint,
 	}
 }
 
 func (f *XMLFormatter) Format(entry *message.Entry) ([]byte, error) {
-	record := entry.FillRecord(f.TimestampFormat)
+	record := f.ConvertToMessage(entry)
 	b := &bytes.Buffer{}
 	encoder := xml.NewEncoder(b)
 	if f.PrettyPrint {

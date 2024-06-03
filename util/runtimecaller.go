@@ -31,7 +31,7 @@ func GetCaller() *runtime.Frame {
 		// dynamic get the package name and the minimum caller depth
 		for i := 0; i < maxCallerDepth; i++ {
 			funcName := runtime.FuncForPC(pcs[i]).Name()
-			if strings.Contains(funcName, "getCaller") {
+			if strings.Contains(funcName, "GetCaller") {
 				logPackage, _ = ParsePackageName(funcName)
 				break
 			}
@@ -48,13 +48,11 @@ func GetCaller() *runtime.Frame {
 	for f, again := frames.Next(); again; f, again = frames.Next() {
 		pkg, _ := ParsePackageName(f.Function)
 
-		// If the caller isn't part of this package, we're done
 		if pkg != logPackage {
-			return &f //nolint:scopelint
+			return &f
 		}
 	}
 
-	// if we got here, we failed to find the caller's context
 	return nil
 }
 

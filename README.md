@@ -156,25 +156,36 @@ You can configure it to your liking.
 The following are all the options that can be configured:
 ```
 %[LoggerName]s      the name of the logger.
-%[LevelNo]s         the logging level in numeric form.
 %[LevelName]s       the text name of the logging level.
-%[Caller]s          logging call (including file name, line number, function name).
-%[FullCaller]s      logging call (including file path and name, line number, function name).
-%[Path]s            Record the calling source file path.
-%[File]s            Record the name of the source file called.
-%[Func]s            Record the function name called.
-%[Line]d            Record the calling line number.
+%[ShortCaller]s     logging call (including file name, line number, function name).
+%[Caller]s          logging call (including file path and name, line number, function name).
 %[DateTime]s        The time of the log execution.
-%[Msecs]d           The millisecond portion of the execution logging time.
 %[TraceId]s         the ID of the context trace.
 %[IP]s              local IP address of the server.
 %[HostName]s        Server host name.
 %[Pid]d             Process ID.
 %[RoutineId]d       Concurrent process ID.
 %[Message]s         Message recorded.
+
+
+%[CallerPath]s            Record the calling source file path.
+%[CallerFile]s            Record the name of the source file called.
+%[CallerName]s            Record the function name called.
+%[CallerLine]d            Record the calling line number.
 ```
+If you don't want to use `%[Caller]s` or `%[ShortCaller]s`, which is a fixed arrangement of caller information,
+You can use `%[CallerPath]s`, `%[CallerFile]s`, `%[CallerName]s`, `%[CallerLine]d` to customize their order. For example:
+```shell
+%[CallerPath]s %[CallerName]s:%[CallerLine]d
+%[CallerFile]s:%[CallerLine]d
+```
+注意：
+- `%[Caller]s` and `%[ShortCaller]s` are fixedly arranged and cannot be customized. And these two fields are mutually exclusive, only one of them can be selected.
+- `%[CallerPath]s`, `%[CallerFile]s`, `%[CallerName]s`, `%[CallerLine]d` can be customized. However, the two fields `%[Caller Path]s` and `%[Caller File]s` are mutually exclusive, and only one of them can be selected.
+- `%[Caller]s`, `%[ShortCaller]s` and `%[CallerPath]s`, `%[CallerFile]s`, `%[CallerName]s`, `%[CallerLine]d` are also mutually exclusive Yes, you can only choose one of the methods.
+
 **Note:**
-In systems with microservices, a similar `TradeId` is typically present to assist in stringing together the entire call chain.
-**glog** makes the logger automatically get the `TradeId` by configuring the hook function of `TradeIDFunc`.
+In systems with microservices, a similar `TraceID` is typically present to assist in stringing together the entire call chain.
+**glog** makes the logger automatically get the `TraceID` by configuring the hook function of `TraceIDFunc`.
 
 

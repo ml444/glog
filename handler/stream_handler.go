@@ -12,9 +12,13 @@ import (
 
 const terminator = '\n'
 
+type StreamHandlerConfig struct {
+	Streamer IStreamer
+}
+
 type IStreamer interface {
 	io.Writer
-	Close()
+	Close() error
 }
 
 type StreamHandler struct {
@@ -23,14 +27,14 @@ type StreamHandler struct {
 	filter    filter.IFilter
 }
 
-func NewStreamHandler(handlerCfg *HandlerConfig) (*StreamHandler, error) {
-	if handlerCfg.Stream.Streamer == nil {
+func NewStreamHandler(cfg *StreamHandlerConfig, fm formatter.IFormatter, ft filter.IFilter) (*StreamHandler, error) {
+	if cfg.Streamer == nil {
 		return nil, errors.New("streamer is nil")
 	}
 	return &StreamHandler{
-		filter:    handlerCfg.Filter,
-		formatter: formatter.GetNewFormatter(handlerCfg.Formatter),
-		stream:    handlerCfg.Stream.Streamer,
+		filter:    ft,
+		formatter: fm,
+		stream:    cfg.Streamer,
 	}, nil
 }
 
@@ -70,18 +74,3 @@ func (h *StreamHandler) Close() error {
 	h.stream.Close()
 	return nil
 }
-
-//// Flush : Flushes the stream.
-//func (h *StreamHandler) Flush() {
-//	/*
-//	   	self.acquire()
-//	      try:
-//	   	   if self.stream and hasattr(self.stream, "flush"):
-//	   		   self.stream.flush()
-//	      finally:
-//	   	   self.release()
-//	*/
-//}
-//func (h *StreamHandler) SetStream(stream filter.IStreamer) {
-//	h.stream = stream
-//}

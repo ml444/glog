@@ -133,7 +133,7 @@ func main() {
 	log.Info("hello world")
 	// doing something
 
-	_ = log.Exit()
+	log.Stop()
 }
 ```
 
@@ -149,14 +149,13 @@ func main() {
 %[LoggerName]s      记录器的名称
 %[LevelNo]s         数字形式的日志记录级别
 %[LevelName]s       日志记录级别的文本名称
-%[Caller]s          记录调用（包括名称、行号、函数名称）
-%[FullCaller]s      记录调用（包括`文件路径`、名称、行号、函数名称）
-%[Path]s            记录调用的源文件的路径
-%[File]s            记录调用的源文件名称
-%[Func]s            记录调用的函数名称
-%[Line]d            记录调用的行号
+%[Caller]s          记录调用（包括`文件路径`、名称、行号、函数名称）
+%[ShortCaller]s     记录调用，剔除文件的目录路径，使其字符串更短（只包括名称、行号、函数名称）
+%[CallerPath]s      记录调用的源文件的路径
+%[CallerFile]s      记录调用的源文件名称
+%[CallerName]s      记录调用的函数名称
+%[CallerLine]d      记录调用的行号
 %[DateTime]s        记录的时间
-%[Msecs]d           记录的时间毫秒部分
 %[TraceId]s         上下文追踪的ID
 %[IP]s              服务器本地IP地址
 %[HostName]s        服务器主机名称
@@ -164,6 +163,17 @@ func main() {
 %[RoutineId]d       协程ID
 %[Message]s         记录的消息
 ```
+如果你不想使用`%[Caller]s`或者`%[ShortCaller]s`这个固定排列的调用者信息，
+你可以使用`CallerPath`、`CallerFile`、`CallerName`、`CallerLine`来自定义他们的顺序排列。
+```shell
+%[CallerPath]s %[CallerName]s:%[CallerLine]d
+%[CallerFile]s:%[CallerLine]d
+```
+注意：
+- `%[Caller]s`和`%[ShortCaller]s`是固定排列的，不可自定义。且这两个字段是互斥的，只能选择其中一个。
+- `%[CallerPath]s`、`%[CallerFile]s`、`%[CallerName]s`、`%[CallerLine]d`是可以自定义排列的。但`%[CallerPath]s`、`%[CallerFile]s`这两个字段是互斥的，只能选择其中一个。
+- `%[Caller]s`、`%[ShortCaller]s` 和 `%[CallerPath]s`、`%[CallerFile]s`、`%[CallerName]s`、`%[CallerLine]d` 也是互斥的，只能选择其中一种方式。
+
 **注意:**
-在微服务的系统中，一般都会存在类似的`TradeId`来协助串联起整个调用链路。
-glog通过配置`TradeIDFunc`的钩子函数，使得logger自动获取`TradeId`。
+在微服务的系统中，一般都会存在类似的`TraceID`来协助串联起整个调用链路。
+glog通过配置`TraceIDFunc`的钩子函数，使得logger自动获取`TraceID`。

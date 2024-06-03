@@ -6,12 +6,26 @@ import (
 	"syscall"
 
 	gomonkey "github.com/agiledragon/gomonkey/v2"
-	"github.com/ml444/glog/config"
+
+	"github.com/ml444/glog/level"
+)
+
+type Level = level.LogLevel
+
+const (
+	NoneLevel Level = iota
+	DebugLevel
+	PrintLevel
+	InfoLevel
+	WarnLevel
+	ErrorLevel
+	PanicLevel
+	FatalLevel
 )
 
 var (
 	logger ILogger
-	Config = config.NewDefaultConfig()
+	Conf   = NewDefaultConfig()
 )
 
 func init() {
@@ -19,10 +33,9 @@ func init() {
 		return
 	}
 	var err error
-	logger, err = NewLogger(Config)
+	logger, err = NewLogger(Conf)
 	if err != nil {
-		println(err)
-		return
+		panic(err.Error())
 	}
 	{
 		sigCh := make(chan os.Signal, 1)
@@ -30,17 +43,17 @@ func init() {
 		go func() {
 			s := <-sigCh
 			println("==> sign exit:", s.String())
-			Exit()
+			Stop()
 		}()
 	}
 	gomonkey.ApplyFunc(os.Exit, ExitHook)
 }
 
-func InitLog(opts ...config.OptionFunc) error {
+func InitLog(opts ...OptionFunc) error {
 	for _, optionFunc := range opts {
-		optionFunc(Config)
+		optionFunc(Conf)
 	}
-	l, err := NewLogger(Config)
+	l, err := NewLogger(Conf)
 	if err != nil {
 		return err
 	}
@@ -72,15 +85,15 @@ func Printf(template string, args ...interface{}) { logger.Printf(template, args
 func Panicf(template string, args ...interface{}) { logger.Panicf(template, args...) }
 func Fatalf(template string, args ...interface{}) { logger.Fatalf(template, args...) }
 
-func Exit() {
+func Stop() {
 	if logger != nil {
 		if err := logger.Stop(); err != nil {
-			println(err)
+			println(err.Error())
 			return
 		}
 	}
 }
 
 func ExitHook(code int) {
-	Exit()
+	Stop()
 }

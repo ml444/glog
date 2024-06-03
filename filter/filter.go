@@ -11,3 +11,4 @@ type IFilter interface {
 }
 
 var ErrFilterOut = errors.New("filter out the message")
+
