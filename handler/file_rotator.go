@@ -361,7 +361,7 @@ func (r *TimeAndSizeRotator) DoRollover() (*os.File, error) {
 			return nil, err
 		}
 	}
-	if !r.cfg.MultiProcessWrite {
+	if !r.cfg.ConcurrentlyWrite {
 		var parties []string
 		if r.filename != "" {
 			parties = append(parties, r.filename)
@@ -431,7 +431,7 @@ func (r *TimeAndSizeRotator) getNewFilepath() string {
 		parties = append(parties, r.filename)
 	}
 	r.rolloverTimeSuffix = time.Now().Format(r.suffixFmt)
-	if r.cfg.MultiProcessWrite {
+	if r.cfg.ConcurrentlyWrite {
 		parties = append(parties, r.rolloverTimeSuffix)
 	}
 	parties = append(parties, r.cfg.FileSuffix)

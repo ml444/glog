@@ -12,13 +12,6 @@ import (
 	"github.com/ml444/glog/message"
 )
 
-type SyslogHandlerConfig struct {
-	Network  string
-	Address  string
-	Tag      string
-	Priority int
-}
-
 type SyslogHandler struct {
 	// BaseHandler
 	Writer   *syslog.Writer

@@ -1,10 +1,6 @@
 package log
 
 import (
-	"os"
-	"path/filepath"
-	"strings"
-
 	"github.com/ml444/glog/formatter"
 	"github.com/ml444/glog/handler"
 )
@@ -35,116 +31,105 @@ const (
 )
 
 func NewDefaultConfig() *Config {
-	name := "glog"
-	curDir, err := os.Getwd()
-	if err != nil {
-		println(err.Error())
-	} else {
-		_, name = filepath.Split(curDir)
-	}
-
-	l := strings.Split(curDir, string(os.PathSeparator))
-	if len(l) > 0 {
-		name = l[len(l)-1]
-	}
-
 	return &Config{
-		LoggerName:          name,
+		LoggerName:          "",
 		LoggerLevel:         PrintLevel,
 		ThrowOnLevel:        NoneLevel,
 		ExitFunc:            ExitHook,
-		WorkerConfigList:    []*WorkerConfig{NewDefaultStdoutHandlerConfig()},
+		WorkerConfigList:    []*WorkerConfig{NewDefaultStdoutWorkerConfig()},
 		DisableRecordCaller: false,
 	}
 }
 
-func NewDefaultStdoutHandlerConfig() *WorkerConfig {
+func NewDefaultStdoutWorkerConfig() *WorkerConfig {
 	return &WorkerConfig{
 		CacheSize:  1024,
 		Level:      PrintLevel,
 		HandlerCfg: HandlerConfig{},
 		FormatterCfg: FormatterConfig{
-			Text: &TextFormatterConfig{
-				BaseFormatterConfig: BaseFormatterConfig{
-					TimeLayout:  DefaultDateTimeFormat,
-					EnableColor: true,
-					ShortLevel:  true,
-				},
-				PatternStyle:           PatternTemplateWithDefault,
-				EnableQuote:            false,
-				EnableQuoteEmptyFields: false,
-			},
+			Text: NewDefaultTextFormatterConfig(),
 		},
 	}
 }
 
-func NewDefaultFileTextHandlerConfig() *WorkerConfig {
-	curDir, err := os.Getwd()
-	if err != nil {
-		println(err.Error())
-	}
+func NewDefaultTextFileWorkerConfig(dir string) *WorkerConfig {
 	return &WorkerConfig{
 		CacheSize: 1024 * 64,
 		Level:     PrintLevel,
 		HandlerCfg: HandlerConfig{
-			File: &FileHandlerConfig{
-				RotatorType:       FileRotatorTypeTimeAndSize,
-				FileDir:           curDir,
-				FileName:          "",
-				MaxFileSize:       defaultMaxFileSize * 4,
-				BulkWriteSize:     10485760, // 10MB
-				BackupCount:       24,
-				Interval:          60 * 60,
-				TimeSuffixFmt:     "2006010215",
-				ReMatch:           "^\\d{10}(\\.\\w+)?$",
-				FileSuffix:        "log",
-				MultiProcessWrite: false,
-			},
+			File: NewDefaultFileHandlerConfig(dir),
 		},
 		FormatterCfg: FormatterConfig{
-			Text: &TextFormatterConfig{
-				BaseFormatterConfig: BaseFormatterConfig{
-					TimeLayout:  DefaultDateTimeFormat,
-					EnableColor: false,
-				},
-				PatternStyle:           PatternTemplateWithDefault,
-				EnableQuote:            false,
-				EnableQuoteEmptyFields: false,
-			},
+			// disable color render
+			Text: NewDefaultTextFormatterConfig().WithBaseFormatterConfig(NewDefaultBaseFormatterConfig()),
 		},
 	}
 }
 
-func NewDefaultFileJsonHandlerConfig() WorkerConfig {
-	curDir, err := os.Getwd()
-	if err != nil {
-		println(err.Error())
-	}
-	return WorkerConfig{
+func NewDefaultJsonFileWorkerConfig(dir string) *WorkerConfig {
+	return &WorkerConfig{
 		CacheSize: 1000,
 		Level:     ErrorLevel,
 		HandlerCfg: HandlerConfig{
-			File: &FileHandlerConfig{
-				RotatorType: FileRotatorTypeSize,
-				FileDir:     curDir,
-				FileName:    "",
-				MaxFileSize: defaultMaxFileSize,
-				BackupCount: 24,
-				FileSuffix:  "report",
-			},
+			File: NewDefaultFileHandlerConfig(dir),
 		},
 		FormatterCfg: FormatterConfig{
-			JSON: &JSONFormatterConfig{
-				BaseFormatterConfig: BaseFormatterConfig{
-					TimeLayout: DefaultDateTimeFormat,
-				},
-				PrettyPrint: true,
-			},
+			JSON: NewDefaultJSONFormatterConfig(),
 		},
 	}
 }
 
-func newHandler(workerCfg WorkerConfig) (handler.IHandler, error) {
+func NewDefaultFileHandlerConfig(dir string) *FileHandlerConfig {
+	return &FileHandlerConfig{
+		RotatorType:       FileRotatorTypeTimeAndSize,
+		FileDir:           dir,
+		FileName:          "",
+		MaxFileSize:       defaultMaxFileSize * 4,
+		BulkWriteSize:     10485760, // 10MB
+		BackupCount:       24,
+		Interval:          60 * 60, // 1 hour
+		TimeSuffixFmt:     "2006010215",
+		ReMatch:           "^\\d{10}(\\.\\w+)?$",
+		FileSuffix:        "log",
+		ConcurrentlyWrite: false,
+	}
+}
+
+func NewDefaultTextFormatterConfig() *TextFormatterConfig {
+	return &TextFormatterConfig{
+		BaseFormatterConfig: BaseFormatterConfig{
+			TimeLayout:  DefaultDateTimeFormat,
+			EnableColor: true,
+			ShortLevel:  true,
+		},
+		PatternStyle:           PatternTemplateWithDefault,
+		EnableQuote:            false,
+		EnableQuoteEmptyFields: false,
+	}
+}
+
+func NewDefaultJSONFormatterConfig() *JSONFormatterConfig {
+	return &JSONFormatterConfig{
+		BaseFormatterConfig: BaseFormatterConfig{
+			TimeLayout: DefaultDateTimeFormat,
+		},
+		PrettyPrint: true,
+	}
+}
+
+func NewDefaultBaseFormatterConfig() BaseFormatterConfig {
+	return BaseFormatterConfig{
+		TimeLayout:      DefaultDateTimeFormat,
+		EnableColor:     false,
+		ShortLevel:      false,
+		EnablePid:       false,
+		EnableIP:        false,
+		EnableHostname:  false,
+		EnableTimestamp: false,
+	}
+}
+
+func newHandler(workerCfg *WorkerConfig) (handler.IHandler, error) {
 	if workerCfg.CustomHandler != nil {
 		return workerCfg.CustomHandler, nil
 	}

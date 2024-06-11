@@ -2,6 +2,7 @@ package formatter
 
 import (
 	"fmt"
+	"math"
 	"strings"
 	"time"
 )
@@ -13,11 +14,10 @@ import (
 //var divisor int
 
 type TimeFormatter struct {
-	SecondLayout      string
-	timeDecimalFormat string
-	formatTimeSecStr  string
-	formatTimeSec     int64
-	divisor           int
+	SecondLayout     string
+	formatTimeSecStr string
+	formatTimeSec    int64
+	divisor          int
 }
 
 func NewTimeFormatter(layout string) *TimeFormatter {
@@ -50,12 +50,10 @@ func (tf *TimeFormatter) SetTimeDecimalFormat(decimal int) {
 		decimal = 9
 	}
 	if decimal == 9 {
-		tf.timeDecimalFormat = `%09d`
 		tf.divisor = 1
 		return
 	}
-	tf.divisor = 1e9 / (9 - decimal) * 10
-	tf.timeDecimalFormat = fmt.Sprintf(`%%0%dd`, decimal)
+	tf.divisor = int(math.Pow10(9 - decimal))
 }
 
 // FormatDateTime Influenced by parallelism, small probability took the old value.
@@ -65,13 +63,16 @@ func (tf *TimeFormatter) FormatDateTime(t time.Time) string {
 	pre := tf.formatTimeSec
 	preStr := tf.formatTimeSecStr
 	if pre == sec {
+		if tf.divisor > 0 {
+			return fmt.Sprintf("%s.%d", preStr, t.Nanosecond()/tf.divisor)
+		}
 		return preStr
 	}
 	x := t.Format(tf.SecondLayout)
 	tf.formatTimeSec = sec
 	tf.formatTimeSecStr = x
-	if tf.timeDecimalFormat != "" {
-		return x + "." + fmt.Sprintf(tf.timeDecimalFormat, t.Nanosecond()/tf.divisor)
+	if tf.divisor > 0 {
+		return fmt.Sprintf("%s.%d", x, t.Nanosecond()/tf.divisor)
 	}
 	return x
 }

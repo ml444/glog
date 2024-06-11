@@ -57,25 +57,44 @@ type BaseFormatterConfig struct {
 	EnableTimestamp bool
 }
 
+func (c BaseFormatterConfig) WithTimeLayout(layout string) BaseFormatterConfig {
+	c.TimeLayout = layout
+	return c
+}
+func (c BaseFormatterConfig) WithShortLevel() BaseFormatterConfig {
+	c.ShortLevel = true
+	return c
+}
+func (c BaseFormatterConfig) WithEnableColor() BaseFormatterConfig {
+	c.EnableColor = true
+	return c
+}
+func (c BaseFormatterConfig) WithEnablePid() BaseFormatterConfig {
+	c.EnablePid = true
+	return c
+}
+func (c BaseFormatterConfig) WithEnableIP() BaseFormatterConfig {
+	c.EnableIP = true
+	return c
+}
+func (c BaseFormatterConfig) WithEnableHostname() BaseFormatterConfig {
+	c.EnableHostname = true
+	return c
+}
+func (c BaseFormatterConfig) WithEnableTimestamp() BaseFormatterConfig {
+	c.EnableTimestamp = true
+	return c
+}
+
 type BaseFormatter struct {
 	*TimeFormatter
-	enableColor     bool
-	shortLevel      bool
-	enablePid       bool
-	enableIP        bool
-	enableHostname  bool
-	enableTimestamp bool
+	cfg BaseFormatterConfig
 }
 
 func NewBaseFormatter(cfg BaseFormatterConfig) *BaseFormatter {
 	return &BaseFormatter{
-		TimeFormatter:   NewTimeFormatter(cfg.TimeLayout),
-		enableColor:     cfg.EnableColor,
-		shortLevel:      cfg.ShortLevel,
-		enablePid:       cfg.EnablePid,
-		enableIP:        cfg.EnableIP,
-		enableHostname:  cfg.EnableHostname,
-		enableTimestamp: cfg.EnableTimestamp,
+		TimeFormatter: NewTimeFormatter(cfg.TimeLayout),
+		cfg:           cfg,
 	}
 }
 
@@ -88,34 +107,26 @@ func (b *BaseFormatter) ConvertToMessage(e *message.Entry) *message.Message {
 		TraceID:   e.TraceID,
 		Message:   e.Message,
 		ErrMsg:    e.ErrMsg,
-		//Pid:       pid,
-		//Timestamp: e.Time.UnixMilli(),
-		//IP:        localIP,
-		//HostName:  localHostname,
-		//CallerLine: 0,
-		//CallerPath: "",
-		//CallerName: "",
 	}
-	if b.enablePid {
+	if b.cfg.EnablePid {
 		m.Pid = pid
 	}
-	if b.shortLevel {
+	if b.cfg.ShortLevel {
 		m.Level = e.Level.ShortString()
 	}
-	if b.enableColor {
+	if b.cfg.EnableColor {
 		m.Level = Color(e.Level) + m.Level + colorEnd
 		m.Service = purple + loggerName + colorEnd
 	}
-	if b.enableIP {
+	if b.cfg.EnableIP {
 		m.IP = localIP
 	}
-	if b.enableHostname {
+	if b.cfg.EnableHostname {
 		m.HostName = localHostname
 	}
-	if b.enableTimestamp {
+	if b.cfg.EnableTimestamp {
 		m.Timestamp = e.Time.UnixMilli()
 	}
-
 	if e.Caller != nil {
 		funcVal := e.Caller.Function
 		if funcVal != "" {

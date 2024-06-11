@@ -60,7 +60,7 @@ func NewChannelEngine(cfg *Config) (*ChannelEngine, error) {
 	}
 	var workers []*Worker
 	for _, workerCfg := range cfg.WorkerConfigList {
-		h, err := newHandler(*workerCfg)
+		h, err := newHandler(workerCfg)
 		if err != nil {
 			return nil, err
 		}

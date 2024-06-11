@@ -13,6 +13,15 @@ type XMLFormatterConfig struct {
 	PrettyPrint bool // [json|xml formatter] will indent all json logs.
 }
 
+func (c *XMLFormatterConfig) WithPrettyPrint() *XMLFormatterConfig {
+	c.PrettyPrint = true
+	return c
+}
+func (c *XMLFormatterConfig) WithBaseFormatterConfig(baseCfg BaseFormatterConfig) *XMLFormatterConfig {
+	c.BaseFormatterConfig = baseCfg
+	return c
+}
+
 type XMLFormatter struct {
 	*BaseFormatter
 	PrettyPrint bool

@@ -19,23 +19,6 @@ const (
 	FileRotatorTypeTimeAndSize RotatorType = 3
 )
 
-type FileHandlerConfig struct {
-	FileDir       string
-	FileName      string
-	MaxFileSize   int64
-	BackupCount   int
-	BulkWriteSize int
-
-	RotatorType       RotatorType
-	Interval          int64 // unit: second. used in TimeRotator and TimeAndSizeRotator.
-	TimeSuffixFmt     string
-	ReMatch           string
-	FileSuffix        string
-	MultiProcessWrite bool
-
-	ErrCallback func(buf interface{}, err error)
-}
-
 type FileHandler struct {
 	formatter formatter.IFormatter
 	filter    filter.IFilter

@@ -15,6 +15,19 @@ type JSONFormatterConfig struct {
 	//DisableTimestamp  bool // [json formatter] allows disabling automatic timestamps in output.
 }
 
+func (c *JSONFormatterConfig) WithPrettyPrint() *JSONFormatterConfig {
+	c.PrettyPrint = true
+	return c
+}
+func (c *JSONFormatterConfig) WithDisableHTMLEscape() *JSONFormatterConfig {
+	c.DisableHTMLEscape = true
+	return c
+}
+func (c *JSONFormatterConfig) WithBaseFormatterConfig(baseCfg BaseFormatterConfig) *JSONFormatterConfig {
+	c.BaseFormatterConfig = baseCfg
+	return c
+}
+
 type JSONFormatter struct {
 	*BaseFormatter
 	disableHTMLEscape bool

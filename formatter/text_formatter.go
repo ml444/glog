@@ -17,7 +17,23 @@ type TextFormatterConfig struct {
 	PatternStyle           string // [text formatter] style template for formatting the data, which determines the order of the fields and the presentation style.
 	EnableQuote            bool   // [text formatter] keep the string literal, while escaping safely if necessary.
 	EnableQuoteEmptyFields bool   // [text formatter] when the value of field is empty, keep the string literal.
-	//DisableColors          bool   // [text formatter] adding color rendering to the output.
+}
+
+func (c *TextFormatterConfig) WithPatternStyle(pattern string) *TextFormatterConfig {
+	c.PatternStyle = pattern
+	return c
+}
+func (c *TextFormatterConfig) WithEnableQuote() *TextFormatterConfig {
+	c.EnableQuote = true
+	return c
+}
+func (c *TextFormatterConfig) WithEnableQuoteEmptyFields() *TextFormatterConfig {
+	c.EnableQuoteEmptyFields = true
+	return c
+}
+func (c *TextFormatterConfig) WithBaseFormatterConfig(baseCfg BaseFormatterConfig) *TextFormatterConfig {
+	c.BaseFormatterConfig = baseCfg
+	return c
 }
 
 // TextFormatter formats logs into text
@@ -115,6 +131,9 @@ func (f *TextFormatter) needsQuoting(text string) bool {
 }
 
 func (f *TextFormatter) writeLogName(b *bytes.Buffer, m *message.Message) {
+	if m.Service == "" {
+		return
+	}
 	b.WriteString(m.Service)
 }
 

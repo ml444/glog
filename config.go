@@ -2,7 +2,6 @@ package log
 
 import (
 	"os"
-	"path/filepath"
 
 	"github.com/ml444/glog/filter"
 	"github.com/ml444/glog/formatter"
@@ -139,16 +138,6 @@ func (w *WorkerConfig) SetFilter(f filter.IFilter) *WorkerConfig {
 }
 
 func (c *Config) Check() {
-	if c.LoggerName == "" {
-		c.LoggerName = "glog"
-
-		curDir, err := os.Getwd()
-		if err != nil {
-			println(err.Error())
-		} else {
-			_, c.LoggerName = filepath.Split(curDir)
-		}
-	}
 	if c.LoggerLevel == 0 {
 		c.LoggerLevel = InfoLevel
 	}
@@ -166,7 +155,7 @@ func (c *Config) Check() {
 
 	if c.WorkerConfigList == nil {
 		c.WorkerConfigList = []*WorkerConfig{
-			NewDefaultStdoutHandlerConfig(),
+			NewDefaultStdoutWorkerConfig(),
 		}
 	} else {
 		for i, workerCfg := range c.WorkerConfigList {
