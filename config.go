@@ -92,6 +92,16 @@ func NewWorkerConfig(level Level, size int) *WorkerConfig {
 	return &WorkerConfig{CacheSize: size, Level: level}
 }
 
+func (w *WorkerConfig) SetCacheSize(size int) *WorkerConfig {
+	w.CacheSize = size
+	return w
+}
+
+func (w *WorkerConfig) SetLevel(lvl Level) *WorkerConfig {
+	w.Level = lvl
+	return w
+}
+
 func (w *WorkerConfig) SetFileHandlerConfig(c *FileHandlerConfig) *WorkerConfig {
 	w.HandlerCfg.File = c
 	return w

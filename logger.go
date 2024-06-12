@@ -182,7 +182,7 @@ func (l *Logger) printStack(callDepth int, lvl Level) {
 		if name.Name() == "runtime.goexit" {
 			break
 		}
-		fmt.Fprintf(buf, "	[STACK]: %s %s:%d\n", name.Name(), file, line)
+		buf.WriteString(fmt.Sprintf("	[STACK]: %s %s:%d\n", name.Name(), file, line))
 	}
 	l.send(lvl, buf.String())
 }

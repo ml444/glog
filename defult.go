@@ -68,8 +68,8 @@ func NewDefaultTextFileWorkerConfig(dir string) *WorkerConfig {
 
 func NewDefaultJsonFileWorkerConfig(dir string) *WorkerConfig {
 	return &WorkerConfig{
-		CacheSize: 1000,
-		Level:     ErrorLevel,
+		CacheSize: 1024 * 64,
+		Level:     PrintLevel,
 		HandlerCfg: HandlerConfig{
 			File: NewDefaultFileHandlerConfig(dir),
 		},

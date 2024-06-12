@@ -71,6 +71,5 @@ func (h *StreamHandler) Emit(record *message.Entry) error {
 }
 
 func (h *StreamHandler) Close() error {
-	h.stream.Close()
-	return nil
+	return h.stream.Close()
 }

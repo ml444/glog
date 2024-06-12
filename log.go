@@ -5,7 +5,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	gomonkey "github.com/agiledragon/gomonkey/v2"
+	"github.com/agiledragon/gomonkey/v2"
 
 	"github.com/ml444/glog/level"
 )
@@ -94,6 +94,6 @@ func Stop() {
 	}
 }
 
-func ExitHook(code int) {
+func ExitHook(_ int) {
 	Stop()
 }

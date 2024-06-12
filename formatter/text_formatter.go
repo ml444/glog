@@ -137,15 +137,15 @@ func (f *TextFormatter) writeLogName(b *bytes.Buffer, m *message.Message) {
 	b.WriteString(m.Service)
 }
 
-func (f *TextFormatter) writePid(b *bytes.Buffer, m *message.Message) {
+func (f *TextFormatter) writePid(b *bytes.Buffer, _ *message.Message) {
 	b.WriteString(pidStr)
 }
 
-func (f *TextFormatter) writeIP(b *bytes.Buffer, m *message.Message) {
+func (f *TextFormatter) writeIP(b *bytes.Buffer, _ *message.Message) {
 	b.WriteString(localIP)
 }
 
-func (f *TextFormatter) writeHostName(b *bytes.Buffer, m *message.Message) {
+func (f *TextFormatter) writeHostName(b *bytes.Buffer, _ *message.Message) {
 	b.WriteString(localHostname)
 }
 
@@ -221,7 +221,7 @@ func (f *TextFormatter) writeMessage(b *bytes.Buffer, m *message.Message) {
 	if !f.needsQuoting(stringVal) {
 		b.WriteString(stringVal)
 	} else {
-		fmt.Fprintf(b, "%q", stringVal)
+		b.WriteString(fmt.Sprintf("%q", stringVal))
 	}
 }
 

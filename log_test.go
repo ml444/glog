@@ -22,51 +22,61 @@ func testLogs() {
 
 }
 func TestStdoutLog(t *testing.T) {
-	InitLog(
+	err := InitLog(
 		SetLoggerName("glog"),
 		SetLoggerLevel(DebugLevel),
 	)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
 	testLogs()
 	t.Log("===> PASS!!!")
 }
 
 func TestStdoutLogWithDisableCaller(t *testing.T) {
-	InitLog(
+	err := InitLog(
 		SetLoggerName("glog"),
 		SetLoggerLevel(DebugLevel),
 		SetDisableRecordCaller(),
 	)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
 	testLogs()
 	t.Log("===> PASS!!!")
 }
 
 func TestTextFileLog(t *testing.T) {
-	InitLog(
+	err := InitLog(
 		SetLoggerName("glog"),
 		SetWorkerConfigs(NewDefaultTextFileWorkerConfig("logs")),
 	)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
 	testLogs()
 	t.Log("===> PASS!!!")
 }
 
 func TestJsonFileLog(t *testing.T) {
-	InitLog(
+	err := InitLog(
 		SetLoggerName("glog"),
 		SetWorkerConfigs(NewDefaultJsonFileWorkerConfig("logs")),
 	)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
 	testLogs()
 	t.Log("===> PASS!!!")
 }
 
 func TestCustomConfigLog(t *testing.T) {
-	InitLog(
+	err := InitLog(
 		SetLoggerName("glog"),
 		SetWorkerConfigs(
-			NewWorkerConfig(InfoLevel, 1024).
-				SetFileHandlerConfig(
-					NewDefaultFileHandlerConfig("logs").
-						WithFileName("text_log"),
-				).
+			NewWorkerConfig(InfoLevel, 1024).SetFileHandlerConfig(
+				NewDefaultFileHandlerConfig("logs").WithFileName("text_log"),
+			).
 				SetJSONFormatterConfig(
 					NewDefaultJSONFormatterConfig().
 						WithBaseFormatterConfig(
@@ -79,6 +89,9 @@ func TestCustomConfigLog(t *testing.T) {
 				),
 		),
 	)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
 	testLogs()
 	t.Log("===> PASS!!!")
 }

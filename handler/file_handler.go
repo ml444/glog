@@ -101,7 +101,7 @@ func (h *FileHandler) realWrite(buf []byte) error {
 	}
 	n, err := file.Write(buf)
 	if err != nil {
-		if err == io.ErrShortWrite {
+		if errors.Is(err, io.ErrShortWrite) {
 			for n < len(buf) {
 				var x int
 				x, err = file.Write(buf[n:])
