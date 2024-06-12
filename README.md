@@ -44,27 +44,18 @@ to Info level, so the Debug level logs in this example are not output.
 Different logging levels are identified by different colors.
 
 ### General config
-By default, logs are output to standard output, so for production environments, we need to make the following settings (simple):
+By default, logs are output to standard output, If you want to save the log in a file, you need to make the following settings (simple):
 ```go
 package main
 
 import (
 	"os"
-	
+
 	"github.com/ml444/glog"
-	"github.com/ml444/glog/config"
-	"github.com/ml444/glog/level"
 )
 
 func main() {
-	var err error
-	err = log.InitLog(
-		config.SetLoggerName("serviceName"),
-		config.SetLevel2Logger(level.DebugLevel),
-		config.SetHandlerType2Logger(config.HandlerTypeFile),
-		config.SetCacheSize2Logger(1024*8),
-		config.SetFileDir2Logger("/var/log"),
-	)
+	err := InitLogger()
 	if err != nil {
 		log.Errorf("err: %v", err)
 		os.Exit(-1)
@@ -72,16 +63,78 @@ func main() {
 	// doing something
 	log.Info("hello world")
 	// doing something
+}
 
-	log.Exit()
+// InitLogger simple configuration：
+func InitLogger() error {
+	return log.InitLog(
+		log.SetLoggerName("serviceName"),   // optional
+		log.SetWorkerConfigs(log.NewDefaultTextFileWorkerConfig("./logs")),
+	)
+}
+
+// InitLogger2 Simple JSON format configuration：
+func InitLogger2() error {
+	return log.InitLog(
+		log.SetLoggerName("serviceName"),   // optional
+		log.SetWorkerConfigs(log.NewDefaultJsonFileWorkerConfig("./logs")),
+	)
 }
 ```
-More detailed configuration can be seen in the code: `config/option.go` and `config/config.go`.
+
+More detailed settings：
+```go
+package main
+
+import (
+	"os"
+	
+	"github.com/ml444/glog"
+)
+
+func main() {
+	err := InitLogger()
+	if err != nil {
+		log.Errorf("err: %v", err)
+		os.Exit(-1)
+	}
+	// doing something
+	log.Info("hello world")
+	// doing something
+}
+
+// InitLogger detailed configuration：
+func InitLogger() error {
+	return log.InitLog(
+		log.SetLoggerName("serviceName"),   // optional
+		log.SetWorkerConfigs(
+			log.NewWorkerConfig(log.InfoLevel, 1024).SetFileHandlerConfig(
+                log.NewDefaultFileHandlerConfig("logs").
+					WithFileName("text_log").       // also specify a file name
+					WithFileSize(1024*1024*1024).   // 1GB
+					WithBackupCount(12).            // number of log files to keep
+					WithBulkSize(1024*1024).        // batch write size to hard drive
+					WithInterval(60*60).            // logs are cut on an hourly basis on a rolling basis
+					WithRotatorType(log.FileRotatorTypeTimeAndSize),            
+            ).SetJSONFormatterConfig(
+                log.NewDefaultJSONFormatterConfig().WithBaseFormatterConfig(
+                    log.NewDefaultBaseFormatterConfig().
+                        WithEnableHostname().       // record the hostname of the server
+                        WithEnableTimestamp().      // record timestamp
+                        WithEnablePid().            // record process id
+                        WithEnableIP(),             // record server ip
+                ),
+            ),
+		),
+	)
+}
+```
 In the log storage selection with files, use the rolling way to keep the files, the default value to keep the latest 24 copies, you can adjust the number of backups according to your actual needs `SetFileBackupCount2Logger()`.
 And the way of scrolling can be done by scrolling by specified size (`FileRotatorTypeTime`), scrolling by time (`FileRotatorTypeSize`), scrolling by time and size common limit (`FileRotatorTypeTimeAndSize`).
 The third type of `FileRotatorTypeTimeAndSize` is described here in particular. It scrolls by time, but when it reaches the specified size limit, it stops logging and discards the rest of the log until the next point in time before a new file starts.
 This is done to protect the server's disk.
 
+More detailed configuration can be seen in the code: `config/option.go` and `config/config.go`.
 
 ### Enum of levels
 To be compatible with the logging levels of the standard library, three levels 
@@ -101,14 +154,14 @@ const (
 )
 ```
 
-## Report feature
+## Multi-Worker processing features
 In production environment sometimes we need to store some special logs, such as:
 1. keep the error logs to keep them for a longer period of time. To facilitate us to trace some bugs.
 2. when some high level logs need to be notified by the system alarm component, developers do not need to develop these special logging components.
 3. when some special logs need special operations, such as operation logs into the database.
 4. etc.
 
-By enabling the report feature and combining it with the filter function to filter the required data and perform special operations, it makes the style and management uniform and developer-friendly.
+By enabling multiple Workers and combining it with the filter function to filter the required data and perform special operations, it makes the style and management uniform and developer-friendly.
 ```go
 package main
 
@@ -116,26 +169,11 @@ import (
 	"os"
 
 	"github.com/ml444/glog"
-	"github.com/ml444/glog/config"
-	"github.com/ml444/glog/level"
 )
 
 func main() {
 	var err error
-	err = log.InitLog(
-		config.SetLoggerName("serviceName"),
-		config.SetLevel2Logger(level.DebugLevel),
-		config.SetHandlerType2Logger(config.HandlerTypeFile),
-		config.SetCacheSize2Logger(1024*8),
-		config.SetFileDir2Logger("/var/log"),
-
-		config.SetEnableReport(),
-		config.SetLevel2Logger(level.WarnLevel),
-		config.SetHandlerType2Logger(config.HandlerTypeFile),
-		config.SetFileRotatorType2Report(config.FileRotatorTypeSize),
-		config.SetCacheSize2Logger(1024*2),
-		config.SetFileDir2Logger("/var/report"),
-	)
+	err = InitLogger()
 	if err != nil {
 		log.Errorf("err: %v", err)
 		os.Exit(-1)
@@ -143,8 +181,15 @@ func main() {
 	// doing something
 	log.Info("hello world")
 	// doing something
-
-	log.Exit()
+}
+func InitLogger() error {
+	return log.InitLog(
+		log.SetLoggerName("serviceName"),   // optional
+		log.SetWorkerConfigs(
+			log.NewDefaultStdoutWorkerConfig(),     // output to standard output
+			log.NewDefaultJsonFileWorkerConfig("./logs").SetLevel(log.ErrorLevel),  // levels above error are output to a file
+		),
+	)
 }
 ```
 

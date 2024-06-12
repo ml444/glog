@@ -35,7 +35,9 @@ func main() {
 不同的日志水平，通过不同的颜色标识。
 
 ### 常规的设置
-默认配置下，日志是输出到标准输出的，所以在生产环境时，我们需要进行以下设置（简单的）：
+
+#### 文件存储日志的设置
+默认配置下，日志是输出到标准输出的，如果要把日志保存在文件，需要进行以下设置（简单的）：
 ```go
 package main
 
@@ -43,19 +45,10 @@ import (
 	"os"
 	
 	"github.com/ml444/glog"
-	"github.com/ml444/glog/config"
-	"github.com/ml444/glog/level"
 )
 
 func main() {
-	var err error
-	err = log.InitLog(
-		config.SetLoggerName("serviceName"),
-		config.SetLevel2Logger(level.DebugLevel),
-		config.SetHandlerType2Logger(config.HandlerTypeFile),
-		config.SetCacheSize2Logger(1024*8),
-		config.SetFileDir2Logger("/var/log"),
-	)
+	err := InitLogger()
 	if err != nil {
 		log.Errorf("err: %v", err)
 		os.Exit(-1)
@@ -63,24 +56,86 @@ func main() {
 	// doing something
 	log.Info("hello world")
 	// doing something
-	
-	_ = log.Exit()
+}
+
+// InitLogger 简单配置：
+func InitLogger() error {
+	return log.InitLog(
+		log.SetLoggerName("serviceName"),   // 可选
+		log.SetWorkerConfigs(log.NewDefaultTextFileWorkerConfig("./logs")),
+	)
+}
+
+// InitLogger2 简单JSON格式配置：
+func InitLogger2() error {
+	return log.InitLog(
+		log.SetLoggerName("serviceName"),   // 可选
+		log.SetWorkerConfigs(log.NewDefaultJsonFileWorkerConfig("./logs")),
+	)
 }
 ```
-更多详细配置可以查看代码：`config/option.go` 和 `config/config.go`。
-在日志存储选择用文件时，使用滚动的方式保持文件，默认值保留最新的24份，可以根据自己的实际需求调整备份数量 `SetFileBackupCount2Logger()`。
+更详细的设置：
+```go
+package main
+
+import (
+	"os"
+	
+	"github.com/ml444/glog"
+)
+
+func main() {
+	err := InitLogger()
+	if err != nil {
+		log.Errorf("err: %v", err)
+		os.Exit(-1)
+	}
+	// doing something
+	log.Info("hello world")
+	// doing something
+}
+
+// InitLogger 详细配置：
+func InitLogger() error {
+	return log.InitLog(
+		log.SetLoggerName("serviceName"),   // 可选
+		log.SetWorkerConfigs(
+			log.NewWorkerConfig(log.InfoLevel, 1024).SetFileHandlerConfig(
+                log.NewDefaultFileHandlerConfig("logs").
+					WithFileName("text_log").       // 另外指定文件名
+					WithFileSize(1024*1024*1024).   // 1GB
+					WithBackupCount(12).            // 保留的日志文件数量
+					WithBulkSize(1024*1024).        // 批量写入硬盘的大小
+					WithInterval(60*60).            // 日志按每小时滚动切割
+					WithRotatorType(log.FileRotatorTypeTimeAndSize),            
+            ).SetJSONFormatterConfig(
+                log.NewDefaultJSONFormatterConfig().WithBaseFormatterConfig(
+                    log.NewDefaultBaseFormatterConfig().
+                        WithEnableHostname().       // 记录服务器的hostname
+                        WithEnableTimestamp().      // 记录时间戳
+                        WithEnablePid().            // 记录进程ID
+                        WithEnableIP(),             // 记录服务器IP
+                ),
+            ),
+		),
+	)
+}
+```
+文件存储日志时，使用滚动的方式保持文件，默认值保留最新的24份，可以根据自己的实际需求调整备份数量 `FileHandlerConfig.WithBackupCount(count int)`。
 并且滚动的方式可以通过按指定大小滚动(`FileRotatorTypeTime`)、按时间滚动(`FileRotatorTypeSize`)、按时间和大小共同限制滚动(`FileRotatorTypeTimeAndSize`)。
 这里特别说明一下第三种`FileRotatorTypeTimeAndSize`，它是按时间滚动的，但是当它到达指定的大小上限后，它就停止记录日志了，会抛弃剩下的日志，直到下一个时间点的新文件开始前。
 这样做的目的是保护服务器的磁盘。
 
+更多详细配置可以查看代码：`option.go` 和 `config.go`。
+
 ### 日志等级
 为了兼容标准库的logging等级，加入了print、fatal、panic三个等级:
 ```go
-package level
+package log
 
-type LogLevel int8
+type Level int8
 const (
-	DebugLevel LogLevel = iota + 1
+	DebugLevel Level = iota + 1
 	PrintLevel
 	InfoLevel
 	WarnLevel
@@ -90,14 +145,14 @@ const (
 )
 ```
 
-## Report 特性
+## 多Worker处理特性
 在生产环境有时候我们需要存储一些特殊的日志，比如：
 1. 保留错误日志，使其存留的时间更长一些。以方便我们追溯一些bug。
 2. 某些高等级的日志需要通过系统的告警组件通知出去的时候，开发人员不必额外去开发这些特殊的日志记录组件。
 3. 一些特殊日志需要特殊操作的时候，比如操作日志存入数据库。
 4. 等等。
 
-通过启用report特性，并结合过滤器（filter）功能，筛选所需数据，进行特殊操作，使得风格和管理统一，对开发人员友好。
+通过启用多个Worker，并结合过滤器（filter）功能，筛选所需数据，进行特殊操作，使得风格和管理统一，对开发人员友好。
 ```go
 package main
 
@@ -105,26 +160,11 @@ import (
 	"os"
 
 	"github.com/ml444/glog"
-	"github.com/ml444/glog/config"
-	"github.com/ml444/glog/level"
 )
 
 func main() {
 	var err error
-	err = log.InitLog(
-		config.SetLoggerName("serviceName"),
-		config.SetLevel2Logger(level.DebugLevel),
-		config.SetHandlerType2Logger(config.HandlerTypeFile),
-		config.SetCacheSize2Logger(1024*8),
-		config.SetFileDir2Logger("/var/log"),
-		
-		config.SetEnableReport(),
-		config.SetLevel2Logger(level.WarnLevel),
-		config.SetHandlerType2Logger(config.HandlerTypeFile),
-		config.SetFileRotatorType2Report(config.FileRotatorTypeSize),
-		config.SetCacheSize2Logger(1024*2),
-		config.SetFileDir2Logger("/var/report"),
-	)
+	err = InitLogger()
 	if err != nil {
 		log.Errorf("err: %v", err)
 		os.Exit(-1)
@@ -132,12 +172,17 @@ func main() {
 	// doing something
 	log.Info("hello world")
 	// doing something
-
-	log.Stop()
+}
+func InitLogger() error {
+	return log.InitLog(
+		log.SetLoggerName("serviceName"),   // 可选
+		log.SetWorkerConfigs(
+			log.NewDefaultStdoutWorkerConfig(),     // 输出到标准输出
+			log.NewDefaultJsonFileWorkerConfig("./logs").SetLevel(log.ErrorLevel),  // Error以上的等级输出到文件
+        ),
+	)
 }
 ```
-
-
 
 ## Pattern template
 使用text模式输出日志时，可以通过配置样式模版来控制日志的展示数据及各个信息的顺序。
