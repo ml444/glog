@@ -17,8 +17,7 @@ type StreamHandlerConfig struct {
 }
 
 type IStreamer interface {
-	io.Writer
-	Close() error
+	io.WriteCloser
 }
 
 type StreamHandler struct {
@@ -47,8 +46,18 @@ func (h *StreamHandler) format(record *message.Entry) ([]byte, error) {
 
 func (h *StreamHandler) emit(msg []byte) error {
 	msg = append(msg, terminator)
-	_, err := h.stream.Write(msg)
+	n, err := h.stream.Write(msg)
 	if err != nil {
+		if errors.Is(err, io.ErrShortWrite) {
+			for n < len(msg) {
+				var x int
+				x, err = h.stream.Write(msg[n:])
+				if err != nil {
+					return err
+				}
+				n += x
+			}
+		}
 		return err
 	}
 	return nil
@@ -66,8 +75,7 @@ func (h *StreamHandler) Emit(record *message.Entry) error {
 		return err
 	}
 
-	err = h.emit(msgByte)
-	return err
+	return h.emit(msgByte)
 }
 
 func (h *StreamHandler) Close() error {
