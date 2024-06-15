@@ -57,14 +57,14 @@ type ILogger interface {
 }
 
 type Logger struct {
-	Name                string
-	Level               Level
-	ThrowOnLevel        Level
-	ExitFunc            func(code int) // Function to exit the application, defaults to `os.Exit()`
-	TraceIDFunc         func(entry *message.Entry) string
-	engine              IEngine
-	DisableRecordCaller bool
-	isStop              bool
+	Name               string
+	Level              Level
+	ThrowOnLevel       Level
+	ExitFunc           func(code int) // Function to exit the application, defaults to `os.Exit()`
+	TraceIDFunc        func(entry *message.Entry) string
+	engine             IEngine
+	enableRecordCaller bool
+	isStop             bool
 }
 
 // type FieldFunc func(entry *message.Entry) string
@@ -84,13 +84,13 @@ func NewLogger(cfg *Config) (*Logger, error) {
 		return nil, err
 	}
 	l := Logger{
-		Name:                cfg.LoggerName,
-		Level:               cfg.LoggerLevel,
-		ThrowOnLevel:        cfg.ThrowOnLevel,
-		ExitFunc:            cfg.ExitFunc,
-		TraceIDFunc:         cfg.TraceIDFunc,
-		engine:              eng,
-		DisableRecordCaller: cfg.DisableRecordCaller,
+		Name:               cfg.LoggerName,
+		Level:              cfg.LoggerLevel,
+		ThrowOnLevel:       cfg.ThrowOnLevel,
+		ExitFunc:           cfg.ExitFunc,
+		TraceIDFunc:        cfg.TraceIDFunc,
+		engine:             eng,
+		enableRecordCaller: cfg.EnableRecordCaller,
 	}
 	err = l.init()
 	if err != nil {
@@ -126,7 +126,7 @@ func (l *Logger) send(lvl Level, msg string) {
 		entry.TraceID = l.TraceIDFunc(entry)
 	}
 
-	if !l.DisableRecordCaller {
+	if l.enableRecordCaller {
 		entry.Caller = util.GetCaller()
 	}
 	l.engine.Send(entry)

@@ -30,8 +30,14 @@ type Config struct {
 	// when a FatalLevel error occurs.
 	ThrowOnLevel Level
 
-	// Disable recording of caller information
-	DisableRecordCaller bool
+	// Enable recording of caller information
+	EnableRecordCaller bool
+
+	// enable color rendering. Only enabled by default in the text formatter.
+	EnableColorRender *bool
+
+	// time layout string, for example: "2006-01-02 15:04:05.000"
+	TimeLayout string
 
 	// For log processing configuration, multiple Worker coroutines can be set,
 	// and each Worker can set different cache sizes, log levels, formatting
@@ -154,6 +160,9 @@ func (c *Config) Check() {
 	if c.ThrowOnLevel == 0 {
 		c.ThrowOnLevel = NoneLevel
 	}
+	if c.TimeLayout == "" {
+		c.TimeLayout = DefaultDateTimeFormat
+	}
 	//if c.ExitFunc == nil {
 	//	c.ExitFunc = ExitHook
 	//}
@@ -182,14 +191,19 @@ func (c *Config) Check() {
 			if workerCfg == nil {
 				c.WorkerConfigList = append(c.WorkerConfigList[:i], c.WorkerConfigList[i+1:]...)
 			}
-			if cc := workerCfg.FormatterCfg.Text; cc != nil && cc.TimeLayout == "" {
-				cc.TimeLayout = DefaultDateTimeFormat
+			if cc := workerCfg.FormatterCfg.Text; cc != nil {
+				if cc.TimeLayout == "" {
+					cc.TimeLayout = c.TimeLayout
+				}
+				if c.EnableColorRender != nil && cc.EnableColor == false {
+					cc.EnableColor = *c.EnableColorRender
+				}
 			}
 			if cc := workerCfg.FormatterCfg.JSON; cc != nil && cc.TimeLayout == "" {
-				cc.TimeLayout = DefaultDateTimeFormat
+				cc.TimeLayout = c.TimeLayout
 			}
 			if cc := workerCfg.FormatterCfg.XML; cc != nil && cc.TimeLayout == "" {
-				cc.TimeLayout = DefaultDateTimeFormat
+				cc.TimeLayout = c.TimeLayout
 			}
 			if cc := workerCfg.HandlerCfg.File; cc != nil {
 				if cc.FileName == "" {

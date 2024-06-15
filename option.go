@@ -5,23 +5,30 @@ import "github.com/ml444/glog/message"
 type OptionFunc func(config *Config)
 
 // SetLoggerName Set the name of the logger, the default is the name of the program.
-func SetLoggerName(name string) OptionFunc {
-	return func(cfg *Config) {
-		cfg.LoggerName = name
-	}
-}
+func SetLoggerName(name string) OptionFunc { return func(cfg *Config) { cfg.LoggerName = name } }
 
+// SetLoggerLevel Set the global log level. Logs below this level will not be processed.
 func SetLoggerLevel(lvl Level) OptionFunc {
 	return func(cfg *Config) { cfg.LoggerLevel = lvl }
 }
 
+// SetThrowOnLevel what level of logging is set here will trigger an exception to be thrown.
 func SetThrowOnLevel(lvl Level) OptionFunc {
 	return func(cfg *Config) { cfg.ThrowOnLevel = lvl }
 }
 
-func SetDisableRecordCaller() OptionFunc {
-	return func(cfg *Config) { cfg.DisableRecordCaller = true }
+// SetEnableRecordCaller Enable recording of caller information
+func SetEnableRecordCaller() OptionFunc {
+	return func(cfg *Config) { cfg.EnableRecordCaller = true }
 }
+
+// SetColorRender enable color rendering. Only enabled by default in the text formatter.
+func SetColorRender(enable bool) OptionFunc {
+	return func(cfg *Config) { cfg.EnableColorRender = &enable }
+}
+
+// SetTimeLayout time layout string, for example: "2006-01-02 15:04:05.000"
+func SetTimeLayout(layout string) OptionFunc { return func(cfg *Config) { cfg.TimeLayout = layout } }
 
 func SetWorkerConfigs(list ...*WorkerConfig) OptionFunc {
 	return func(cfg *Config) { cfg.WorkerConfigList = list }

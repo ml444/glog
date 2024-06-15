@@ -32,12 +32,13 @@ const (
 
 func NewDefaultConfig() *Config {
 	return &Config{
-		LoggerName:          "",
-		LoggerLevel:         PrintLevel,
-		ThrowOnLevel:        NoneLevel,
-		ExitFunc:            ExitHook,
-		WorkerConfigList:    []*WorkerConfig{NewDefaultStdoutWorkerConfig()},
-		DisableRecordCaller: false,
+		LoggerName:         "",
+		LoggerLevel:        PrintLevel,
+		ThrowOnLevel:       NoneLevel,
+		TimeLayout:         DefaultDateTimeFormat,
+		ExitFunc:           ExitHook,
+		WorkerConfigList:   []*WorkerConfig{NewDefaultStdoutWorkerConfig()},
+		EnableRecordCaller: false,
 	}
 }
 
