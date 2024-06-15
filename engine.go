@@ -3,6 +3,7 @@ package log
 import (
 	"errors"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/ml444/glog/handler"
@@ -49,6 +50,7 @@ type ChannelEngine struct {
 	workers []*Worker
 	onError func(v interface{}, err error)
 
+	once *sync.Once
 	stop bool
 }
 
@@ -78,6 +80,7 @@ func NewChannelEngine(cfg *Config) (*ChannelEngine, error) {
 	return &ChannelEngine{
 		workers: workers,
 		onError: cfg.OnError,
+		once:    &sync.Once{},
 	}, nil
 }
 
@@ -90,7 +93,7 @@ func (e *ChannelEngine) Start() error {
 
 func (e *ChannelEngine) Send(entry *message.Entry) {
 	if e.stop {
-		e.closeAllChan()
+		e.once.Do(e.closeAllChan)
 		return
 	}
 	for _, worker := range e.workers {
