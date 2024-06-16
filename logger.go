@@ -61,13 +61,13 @@ type Logger struct {
 	Level              Level
 	ThrowOnLevel       Level
 	ExitFunc           func(code int) // Function to exit the application, defaults to `os.Exit()`
-	TraceIDFunc        func(entry *message.Entry) string
+	TraceIDFunc        func(record *message.Record) string
 	engine             IEngine
 	enableRecordCaller bool
 	isStop             bool
 }
 
-// type FieldFunc func(entry *message.Entry) string
+// type FieldFunc func(record *message.Record) string
 var (
 	_ StdLogger = &Logger{}
 	_ ILogger   = &Logger{}
@@ -109,35 +109,39 @@ func (l *Logger) init() (err error) {
 	return nil
 }
 
-func (l *Logger) send(lvl Level, msg string) {
-	if l.isStop {
-		println("it is stoped, can't send: ", msg)
-		return
-	}
-	routineID := goid.Get()
-	entry := &message.Entry{
-		LogName:   l.Name,
-		RoutineID: routineID,
-		Message:   msg,
-		Time:      time.Now(),
-		Level:     lvl,
+func (l *Logger) newRecord() *message.Record {
+	record := message.Record{
+		LogName:      l.Name,
+		Level:        l.Level,
+		RoutineID:    goid.Get(),
+		Time:         time.Now(),
+		SendCallback: l.send,
 	}
 	if l.TraceIDFunc != nil {
-		entry.TraceID = l.TraceIDFunc(entry)
+		record.TraceID = l.TraceIDFunc(&record)
 	}
 
 	if l.enableRecordCaller {
-		entry.Caller = util.GetCaller()
+		record.Caller = util.GetCaller()
 	}
-	l.engine.Send(entry)
+	return &record
+}
+
+func (l *Logger) send(record *message.Record) {
+	if l.isStop {
+		println("it is stoped, can't send: ", record.Message)
+		return
+	}
+	l.engine.Send(record)
 }
 
 func (l *Logger) log(lvl Level, args ...interface{}) {
 	if lvl < l.Level {
 		return
 	}
-	msg := fmt.Sprint(args...)
-	l.send(lvl, msg)
+	record := l.newRecord()
+	record.Message = fmt.Sprint(args...)
+	l.send(record)
 	l.after(lvl)
 }
 
@@ -152,7 +156,9 @@ func (l *Logger) logf(lvl Level, template string, args ...interface{}) {
 	} else if msg != "" && len(args) > 0 {
 		msg = fmt.Sprintf(template, args...)
 	}
-	l.send(lvl, msg)
+	record := l.newRecord()
+	record.Message = msg
+	l.send(record)
 	l.after(lvl)
 }
 
@@ -178,13 +184,15 @@ func (l *Logger) printStack(callDepth int, lvl Level) {
 		if !ok {
 			break
 		}
-		name := runtime.FuncForPC(pc)
-		if name.Name() == "runtime.goexit" {
+		funcName := runtime.FuncForPC(pc).Name()
+		if funcName == "runtime.goexit" {
 			break
 		}
-		buf.WriteString(fmt.Sprintf("	[STACK]: %s %s:%d\n", name.Name(), file, line))
+		buf.WriteString(fmt.Sprintf("	[STACK]: %s %s:%d\n", funcName, file, line))
 	}
-	l.send(lvl, buf.String())
+	record := l.newRecord()
+	record.Message = buf.String()
+	l.send(record)
 }
 
 func (l *Logger) GetLoggerName() string {
@@ -242,6 +250,11 @@ func (l *Logger) Panicf(template string, args ...interface{}) {
 
 func (l *Logger) Fatalf(template string, args ...interface{}) {
 	l.logf(FatalLevel, template, args...)
+}
+
+func (l *Logger) KVs(kv ...interface{}) *message.Record {
+	e := l.newRecord()
+	return e.KVs(kv...)
 }
 
 func (l *Logger) Stop() error {

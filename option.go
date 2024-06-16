@@ -42,6 +42,6 @@ func SetOnError(fn func(v interface{}, err error)) OptionFunc {
 	return func(cfg *Config) { cfg.OnError = fn }
 }
 
-func SetTraceIDFunc(fn func(entry *message.Entry) string) OptionFunc {
+func SetTraceIDFunc(fn func(record *message.Record) string) OptionFunc {
 	return func(cfg *Config) { cfg.TraceIDFunc = fn }
 }

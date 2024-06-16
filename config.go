@@ -60,7 +60,7 @@ type Config struct {
 	// Link tracking solutions are often used in microservices, where the
 	// tracking ID is the core of the entire call link. Customize this
 	// function to return the Trace ID, and then record it in the log.
-	TraceIDFunc func(entry *message.Entry) string
+	TraceIDFunc func(record *message.Record) string
 }
 
 type FileHandlerConfig = handler.FileHandlerConfig

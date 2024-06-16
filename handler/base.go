@@ -5,6 +5,6 @@ import (
 )
 
 type IHandler interface {
-	Emit(entry *message.Entry) error
+	Emit(record *message.Record) error
 	Close() error
 }

@@ -37,7 +37,7 @@ func NewStreamHandler(cfg *StreamHandlerConfig, fm formatter.IFormatter, ft filt
 	}, nil
 }
 
-func (h *StreamHandler) format(record *message.Entry) ([]byte, error) {
+func (h *StreamHandler) format(record *message.Record) ([]byte, error) {
 	if h.formatter != nil {
 		return h.formatter.Format(record)
 	}
@@ -63,7 +63,7 @@ func (h *StreamHandler) emit(msg []byte) error {
 	return nil
 }
 
-func (h *StreamHandler) Emit(record *message.Entry) error {
+func (h *StreamHandler) Emit(record *message.Record) error {
 	if h.filter != nil {
 		if ok := h.filter.Filter(record); !ok {
 			return fmt.Errorf("filter out this msg: %v", record)

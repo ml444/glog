@@ -7,8 +7,7 @@ import (
 )
 
 type IFilter interface {
-	Filter(record *message.Entry) bool
+	Filter(record *message.Record) bool
 }
 
 var ErrFilterOut = errors.New("filter out the message")
-

@@ -34,8 +34,8 @@ func NewXMLFormatter(cfg XMLFormatterConfig) *XMLFormatter {
 	}
 }
 
-func (f *XMLFormatter) Format(entry *message.Entry) ([]byte, error) {
-	record := f.ConvertToMessage(entry)
+func (f *XMLFormatter) Format(record *message.Record) ([]byte, error) {
+	record := f.ConvertToMessage(record)
 	b := &bytes.Buffer{}
 	encoder := xml.NewEncoder(b)
 	if f.PrettyPrint {

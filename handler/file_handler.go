@@ -132,9 +132,9 @@ func (h *FileHandler) BulkFill(buf []byte) []byte {
 	}
 }
 
-func (h *FileHandler) Emit(entry *message.Entry) error {
+func (h *FileHandler) Emit(record *message.Record) error {
 	if h.filter != nil {
-		if ok := h.filter.Filter(entry); !ok {
+		if ok := h.filter.Filter(record); !ok {
 			return filter.ErrFilterOut
 		}
 	}
@@ -143,7 +143,7 @@ func (h *FileHandler) Emit(entry *message.Entry) error {
 		return errors.New("formatter is nil")
 	}
 
-	msgByte, err := h.formatter.Format(entry)
+	msgByte, err := h.formatter.Format(record)
 	if err != nil {
 		return err
 	}

@@ -21,21 +21,21 @@ func NewStdoutHandler(fm formatter.IFormatter, ft filter.IFilter) (*StdoutHandle
 	}, nil
 }
 
-func (h *StdoutHandler) Format(entry *message.Entry) ([]byte, error) {
+func (h *StdoutHandler) Format(record *message.Record) ([]byte, error) {
 	if h.formatter != nil {
-		return h.formatter.Format(entry)
+		return h.formatter.Format(record)
 	}
 	return nil, nil
 }
 
-func (h *StdoutHandler) Emit(entry *message.Entry) error {
+func (h *StdoutHandler) Emit(record *message.Record) error {
 	if h.filter != nil {
-		if ok := h.filter.Filter(entry); !ok {
+		if ok := h.filter.Filter(record); !ok {
 			return filter.ErrFilterOut
 		}
 	}
 
-	msgByte, err := h.Format(entry)
+	msgByte, err := h.Format(record)
 	if err != nil {
 		return err
 	}

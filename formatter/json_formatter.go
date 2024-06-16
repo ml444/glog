@@ -42,8 +42,8 @@ func NewJSONFormatter(cfg JSONFormatterConfig) *JSONFormatter {
 	}
 }
 
-func (f *JSONFormatter) Format(entry *message.Entry) ([]byte, error) {
-	record := f.ConvertToMessage(entry)
+func (f *JSONFormatter) Format(record *message.Record) ([]byte, error) {
+	record := f.ConvertToMessage(record)
 	b := &bytes.Buffer{}
 	encoder := json.NewEncoder(b)
 	encoder.SetEscapeHTML(!f.disableHTMLEscape)

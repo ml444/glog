@@ -1,0 +1,25 @@
+syntax = "proto3";
+
+package message;
+
+option go_package = "github.com/ml444/glog/message";
+import "google/protobuf/struct.proto";
+
+message Message{
+    int32 pid = 1;
+    int64 routine_id = 2;
+    string service = 3;
+    string level = 4;
+    string datetime = 5;
+    int64 timestamp = 6;
+    int32 caller_line = 7;
+    string caller_path = 8;
+    string caller_name = 9;
+    string ip = 10;
+    string host = 11;
+    string trade_id = 12;
+    string msg = 13;
+    map<string, google.protobuf.Value> extra = 14;
+}
+
+

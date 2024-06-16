@@ -13,31 +13,31 @@ import (
 type IEngine interface {
 	Start() error
 	Stop() error
-	Send(entry *message.Entry)
+	Send(record *message.Record)
 }
 
 type Worker struct {
 	handler        handler.IHandler
-	entryChan      chan *message.Entry
+	recordChan     chan *message.Record
 	onError        func(v interface{}, err error)
 	levelThreshold Level
 }
 
 func (w *Worker) Run() {
-	for entry := range w.entryChan {
+	for record := range w.recordChan {
 
-		if entry.Level < w.levelThreshold {
+		if record.Level < w.levelThreshold {
 			continue
 		}
-		err := w.handler.Emit(entry)
+		err := w.handler.Emit(record)
 		if err != nil {
-			w.onError(entry, err)
+			w.onError(record, err)
 		}
 	}
 }
 
 func (w *Worker) Close() {
-	for len(w.entryChan) != 0 {
+	for len(w.recordChan) != 0 {
 		<-time.After(time.Millisecond * 1)
 	}
 	err := w.handler.Close()
@@ -57,7 +57,7 @@ type ChannelEngine struct {
 func NewChannelEngine(cfg *Config) (*ChannelEngine, error) {
 	if cfg.OnError == nil {
 		cfg.OnError = func(v interface{}, err error) {
-			println(fmt.Sprintf("err: %s, entry: %+v \n", err.Error(), v))
+			println(fmt.Sprintf("err: %s, record: %+v \n", err.Error(), v))
 		}
 	}
 	var workers []*Worker
@@ -68,7 +68,7 @@ func NewChannelEngine(cfg *Config) (*ChannelEngine, error) {
 		}
 		workers = append(workers, &Worker{
 			handler:        h,
-			entryChan:      make(chan *message.Entry, workerCfg.CacheSize),
+			recordChan:     make(chan *message.Record, workerCfg.CacheSize),
 			onError:        cfg.OnError,
 			levelThreshold: workerCfg.Level,
 		})
@@ -91,22 +91,22 @@ func (e *ChannelEngine) Start() error {
 	return nil
 }
 
-func (e *ChannelEngine) Send(entry *message.Entry) {
+func (e *ChannelEngine) Send(record *message.Record) {
 	if e.stop {
 		e.once.Do(e.closeAllChan)
 		return
 	}
 	for _, worker := range e.workers {
-		if entry.Level < worker.levelThreshold {
+		if record.Level < worker.levelThreshold {
 			continue
 		}
-		worker.entryChan <- entry
+		worker.recordChan <- record
 	}
 }
 
 func (e *ChannelEngine) closeAllChan() {
 	for _, worker := range e.workers {
-		close(worker.entryChan)
+		close(worker.recordChan)
 	}
 }
 

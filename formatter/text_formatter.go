@@ -67,8 +67,8 @@ func NewTextFormatter(cfg TextFormatterConfig) *TextFormatter {
 }
 
 // Format renders log's message into bytes
-func (f *TextFormatter) Format(entry *message.Entry) ([]byte, error) {
-	m := f.ConvertToMessage(entry)
+func (f *TextFormatter) Format(record *message.Record) ([]byte, error) {
+	m := f.ConvertToMessage(record)
 	b := &bytes.Buffer{}
 	b.Grow(defaultBufferGrow)
 	if f.isCustomizedWritePattern {

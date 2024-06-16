@@ -40,7 +40,7 @@ func NewSyslogHandler(cfg *SyslogHandlerConfig, fm formatter.IFormatter, ft filt
 	return h, nil
 }
 
-func (h *SyslogHandler) format(record *message.Entry) ([]byte, error) {
+func (h *SyslogHandler) format(record *message.Record) ([]byte, error) {
 	if h.formatter != nil {
 		return h.formatter.Format(record)
 	}
@@ -56,7 +56,7 @@ func (h *SyslogHandler) Init() error {
 	return nil
 }
 
-func (h *SyslogHandler) Emit(e *message.Entry) error {
+func (h *SyslogHandler) Emit(e *message.Record) error {
 	if h.filter != nil {
 		if ok := h.filter.Filter(e); !ok {
 			return filter.ErrFilterOut

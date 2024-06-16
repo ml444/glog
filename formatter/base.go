@@ -11,7 +11,7 @@ import (
 )
 
 type IFormatter interface {
-	Format(*message.Entry) ([]byte, error)
+	Format(*message.Record) ([]byte, error)
 }
 
 var (
@@ -98,7 +98,7 @@ func NewBaseFormatter(cfg BaseFormatterConfig) *BaseFormatter {
 	}
 }
 
-func (b *BaseFormatter) ConvertToMessage(e *message.Entry) *message.Message {
+func (b *BaseFormatter) ConvertToMessage(e *message.Record) *message.Message {
 	m := &message.Message{
 		RoutineID: e.RoutineID,
 		Service:   loggerName,
