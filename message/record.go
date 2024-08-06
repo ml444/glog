@@ -1,6 +1,6 @@
 package message
 
-type Message struct {
+type Record struct {
 	Pid        int    `json:"pid,omitempty"`
 	RoutineID  int64  `json:"routine_id,omitempty"`
 	Service    string `json:"module,omitempty"`
@@ -14,5 +14,4 @@ type Message struct {
 	HostName   string `json:"host,omitempty"`
 	TraceID    string `json:"trade_id,omitempty"`
 	Message    string `json:"msg,omitempty"`
-	ErrMsg     string `json:"err_msg,omitempty"`
 }

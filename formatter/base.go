@@ -98,15 +98,14 @@ func NewBaseFormatter(cfg BaseFormatterConfig) *BaseFormatter {
 	}
 }
 
-func (b *BaseFormatter) ConvertToMessage(e *message.Entry) *message.Message {
-	m := &message.Message{
+func (b *BaseFormatter) ConvertToMessage(e *message.Entry) *message.Record {
+	m := &message.Record{
 		RoutineID: e.RoutineID,
 		Service:   loggerName,
 		Level:     e.Level.String(),
 		Datetime:  b.FormatDateTime(e.Time),
 		TraceID:   e.TraceID,
 		Message:   e.Message,
-		ErrMsg:    e.ErrMsg,
 	}
 	if b.cfg.EnablePid {
 		m.Pid = pid

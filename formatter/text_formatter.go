@@ -10,7 +10,7 @@ import (
 	"github.com/ml444/glog/message"
 )
 
-type writeFunc func(b *bytes.Buffer, m *message.Message)
+type writeFunc func(b *bytes.Buffer, m *message.Record)
 
 type TextFormatterConfig struct {
 	BaseFormatterConfig
@@ -81,7 +81,7 @@ func (f *TextFormatter) Format(entry *message.Entry) ([]byte, error) {
 	return b.Bytes(), nil
 }
 
-func (f *TextFormatter) ColorRender(b *bytes.Buffer, m *message.Message) {
+func (f *TextFormatter) ColorRender(b *bytes.Buffer, m *message.Record) {
 	f.writeLogName(b, m)
 	b.WriteByte('(')
 	f.writePid(b, m)
@@ -104,7 +104,7 @@ func (f *TextFormatter) ColorRender(b *bytes.Buffer, m *message.Message) {
 	f.writeMessage(b, m)
 }
 
-func (f *TextFormatter) ColorRenderV2(b *bytes.Buffer, m *message.Message) {
+func (f *TextFormatter) ColorRenderV2(b *bytes.Buffer, m *message.Record) {
 	if f.msgPrefix != "" {
 		b.WriteString(f.msgPrefix)
 	}
@@ -130,44 +130,44 @@ func (f *TextFormatter) needsQuoting(text string) bool {
 	return false
 }
 
-func (f *TextFormatter) writeLogName(b *bytes.Buffer, m *message.Message) {
+func (f *TextFormatter) writeLogName(b *bytes.Buffer, m *message.Record) {
 	if m.Service == "" {
 		return
 	}
 	b.WriteString(m.Service)
 }
 
-func (f *TextFormatter) writePid(b *bytes.Buffer, _ *message.Message) {
+func (f *TextFormatter) writePid(b *bytes.Buffer, _ *message.Record) {
 	b.WriteString(pidStr)
 }
 
-func (f *TextFormatter) writeIP(b *bytes.Buffer, _ *message.Message) {
+func (f *TextFormatter) writeIP(b *bytes.Buffer, _ *message.Record) {
 	b.WriteString(localIP)
 }
 
-func (f *TextFormatter) writeHostName(b *bytes.Buffer, _ *message.Message) {
+func (f *TextFormatter) writeHostName(b *bytes.Buffer, _ *message.Record) {
 	b.WriteString(localHostname)
 }
 
-func (f *TextFormatter) writeRoutineID(b *bytes.Buffer, m *message.Message) {
+func (f *TextFormatter) writeRoutineID(b *bytes.Buffer, m *message.Record) {
 	b.WriteString(strconv.FormatInt(m.RoutineID, 10))
 }
 
-func (f *TextFormatter) writeDateTime(b *bytes.Buffer, m *message.Message) {
+func (f *TextFormatter) writeDateTime(b *bytes.Buffer, m *message.Record) {
 	b.WriteString(m.Datetime)
 }
 
-func (f *TextFormatter) writeTradeID(b *bytes.Buffer, m *message.Message) {
+func (f *TextFormatter) writeTradeID(b *bytes.Buffer, m *message.Record) {
 	if m.TraceID != "" {
 		b.WriteString(m.TraceID)
 	}
 }
 
-func (f *TextFormatter) writeLogLevel(b *bytes.Buffer, m *message.Message) {
+func (f *TextFormatter) writeLogLevel(b *bytes.Buffer, m *message.Record) {
 	b.WriteString(m.Level)
 }
 
-//func (f *TextFormatter) writeLogLevelNo(b *bytes.Buffer, m *message.Message) {
+//func (f *TextFormatter) writeLogLevelNo(b *bytes.Buffer, m *message.Record) {
 //	if f.DisableColors {
 //		b.WriteString(strconv.FormatUint(uint64(m.Level), 10))
 //	} else {
@@ -175,23 +175,23 @@ func (f *TextFormatter) writeLogLevel(b *bytes.Buffer, m *message.Message) {
 //	}
 //}
 
-func (f *TextFormatter) writeFileName(b *bytes.Buffer, m *message.Message) {
+func (f *TextFormatter) writeFileName(b *bytes.Buffer, m *message.Record) {
 	b.WriteString(path.Base(m.CallerPath))
 }
 
-func (f *TextFormatter) writeFilepath(b *bytes.Buffer, m *message.Message) {
+func (f *TextFormatter) writeFilepath(b *bytes.Buffer, m *message.Record) {
 	b.WriteString(m.CallerPath)
 }
 
-func (f *TextFormatter) writeFuncLine(b *bytes.Buffer, m *message.Message) {
+func (f *TextFormatter) writeFuncLine(b *bytes.Buffer, m *message.Record) {
 	b.WriteString(strconv.FormatInt(int64(m.CallerLine), 10))
 }
 
-func (f *TextFormatter) writeFuncName(b *bytes.Buffer, m *message.Message) {
+func (f *TextFormatter) writeFuncName(b *bytes.Buffer, m *message.Record) {
 	b.WriteString(m.CallerName)
 }
 
-func (f *TextFormatter) writeFullCaller(b *bytes.Buffer, m *message.Message) {
+func (f *TextFormatter) writeFullCaller(b *bytes.Buffer, m *message.Record) {
 	if m.CallerPath == "" {
 		return
 	}
@@ -203,7 +203,7 @@ func (f *TextFormatter) writeFullCaller(b *bytes.Buffer, m *message.Message) {
 	}
 }
 
-func (f *TextFormatter) writeCaller(b *bytes.Buffer, m *message.Message) {
+func (f *TextFormatter) writeCaller(b *bytes.Buffer, m *message.Record) {
 	if m.CallerPath == "" {
 		return
 	}
@@ -215,7 +215,7 @@ func (f *TextFormatter) writeCaller(b *bytes.Buffer, m *message.Message) {
 	}
 }
 
-func (f *TextFormatter) writeMessage(b *bytes.Buffer, m *message.Message) {
+func (f *TextFormatter) writeMessage(b *bytes.Buffer, m *message.Record) {
 	stringVal := m.Message
 
 	if !f.needsQuoting(stringVal) {

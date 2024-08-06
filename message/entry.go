@@ -8,12 +8,6 @@ import (
 )
 
 type Entry struct {
-	LogName string
-	//FileName   string
-	//FilePath   string
-	//CallerName string
-	//CallerLine int
-	ErrMsg    string
 	Message   string
 	TraceID   string
 	RoutineID int64
