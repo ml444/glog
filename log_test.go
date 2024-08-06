@@ -37,7 +37,7 @@ func TestStdoutLogWithDisableCaller(t *testing.T) {
 	err := InitLog(
 		SetLoggerName("glog"),
 		SetLoggerLevel(DebugLevel),
-		SetDisableRecordCaller(),
+		SetEnableRecordCaller(),
 	)
 	if err != nil {
 		t.Fatal(err.Error())

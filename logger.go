@@ -6,10 +6,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ml444/glog/formatter"
-	"github.com/ml444/glog/util"
-
 	"github.com/petermattis/goid"
+
+	"github.com/ml444/glog/formatter"
 
 	"github.com/ml444/glog/message"
 )
@@ -116,7 +115,6 @@ func (l *Logger) send(lvl Level, msg string) {
 	}
 	routineID := goid.Get()
 	entry := &message.Entry{
-		LogName:   l.Name,
 		RoutineID: routineID,
 		Message:   msg,
 		Time:      time.Now(),
@@ -127,7 +125,7 @@ func (l *Logger) send(lvl Level, msg string) {
 	}
 
 	if l.enableRecordCaller {
-		entry.Caller = util.GetCaller()
+		entry.Caller = GetCallerFrame()
 	}
 	l.engine.Send(entry)
 }
@@ -147,31 +145,22 @@ func (l *Logger) logf(lvl Level, template string, args ...interface{}) {
 	}
 
 	msg := template
-	if msg == "" && len(args) > 0 {
+	if msg == "" {
 		msg = fmt.Sprint(args...)
-	} else if msg != "" && len(args) > 0 {
+	} else {
 		msg = fmt.Sprintf(template, args...)
+	}
+	if lvl >= PanicLevel {
+		buf := new(strings.Builder)
+		buf.WriteString(msg)
+		l.recordStack(4, buf)
+		msg = buf.String()
 	}
 	l.send(lvl, msg)
 	l.after(lvl)
 }
 
-func (l *Logger) after(lvl Level) {
-	if lvl < PanicLevel {
-		return
-	}
-	l.printStack(4, lvl)
-	if l.ThrowOnLevel != NoneLevel && lvl >= l.ThrowOnLevel {
-		err := l.Stop()
-		if err != nil {
-			println(err.Error())
-		}
-		l.ExitFunc(-1)
-	}
-}
-
-func (l *Logger) printStack(callDepth int, lvl Level) {
-	buf := new(strings.Builder)
+func (l *Logger) recordStack(callDepth int, buf *strings.Builder) {
 	buf.WriteString("\n")
 	for ; ; callDepth++ {
 		pc, file, line, ok := runtime.Caller(callDepth)
@@ -184,7 +173,19 @@ func (l *Logger) printStack(callDepth int, lvl Level) {
 		}
 		buf.WriteString(fmt.Sprintf("	[STACK]: %s %s:%d\n", name.Name(), file, line))
 	}
-	l.send(lvl, buf.String())
+}
+
+func (l *Logger) after(lvl Level) {
+	if lvl < PanicLevel {
+		return
+	}
+	if l.ThrowOnLevel != NoneLevel && lvl >= l.ThrowOnLevel {
+		err := l.Stop()
+		if err != nil {
+			println(err.Error())
+		}
+		l.ExitFunc(-1)
+	}
 }
 
 func (l *Logger) GetLoggerName() string {
