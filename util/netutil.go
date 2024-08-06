@@ -3,8 +3,8 @@ package util
 import (
 	"bytes"
 	"encoding/binary"
+	"errors"
 	"fmt"
-	"github.com/pkg/errors"
 	"net"
 )
 
@@ -41,7 +41,7 @@ func GetAllLocalIp() ([]string, error) {
 	return ipList, nil
 }
 
-func GetFirstLocalIp() (string, error){
+func GetFirstLocalIp() (string, error) {
 	ipList, err := GetAllLocalIp()
 	if err != nil {
 		//log.Errorf("Err: %v\n", err)
