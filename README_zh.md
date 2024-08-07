@@ -98,7 +98,8 @@ func main() {
 // InitLogger 详细配置：
 func InitLogger() error {
 	return log.InitLog(
-		log.SetLoggerName("serviceName"),   // 可选
+		log.SetLoggerName("serviceName"),   
+		log.SetRecordCaller(0),
 		log.SetWorkerConfigs(
 			log.NewWorkerConfig(log.InfoLevel, 1024).SetFileHandlerConfig(
                 log.NewDefaultFileHandlerConfig("logs").

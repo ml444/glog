@@ -4,9 +4,11 @@ import (
 	"runtime"
 )
 
-func GetCallerFrame() *runtime.Frame {
+const callerSkipOffset = 6
+
+func GetCallerFrame(callerSkip int) *runtime.Frame {
 	rpc := make([]uintptr, 1)
-	n := runtime.Callers(6, rpc[:])
+	n := runtime.Callers(callerSkipOffset+callerSkip, rpc[:])
 	if n < 1 {
 		return &runtime.Frame{}
 	}

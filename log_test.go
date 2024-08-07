@@ -33,11 +33,11 @@ func TestStdoutLog(t *testing.T) {
 	t.Log("===> PASS!!!")
 }
 
-func TestStdoutLogWithDisableCaller(t *testing.T) {
+func TestStdoutLogWithEnableCaller(t *testing.T) {
 	err := InitLog(
 		SetLoggerName("glog"),
 		SetLoggerLevel(DebugLevel),
-		SetEnableRecordCaller(),
+		SetRecordCaller(0),
 	)
 	if err != nil {
 		t.Fatal(err.Error())

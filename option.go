@@ -17,9 +17,12 @@ func SetThrowOnLevel(lvl Level) OptionFunc {
 	return func(cfg *Config) { cfg.ThrowOnLevel = lvl }
 }
 
-// SetEnableRecordCaller Enable recording of caller information
-func SetEnableRecordCaller() OptionFunc {
-	return func(cfg *Config) { cfg.EnableRecordCaller = true }
+// SetRecordCaller Enable recording of caller information
+func SetRecordCaller(skip int) OptionFunc {
+	return func(cfg *Config) { 
+		cfg.EnableRecordCaller = true 
+		cfg.CallerSkipCount = skip
+	}
 }
 
 // SetColorRender enable color rendering. Only enabled by default in the text formatter.

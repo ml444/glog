@@ -107,7 +107,7 @@ func main() {
 func InitLogger() error {
 	return log.InitLog(
 		log.SetLoggerName("serviceName"),   // optional
-		log.SetEnableRecordCaller(),        // enable record caller info
+		log.SetRecordCaller(0),        // enable record caller info
 		log.SetWorkerConfigs(
 			log.NewWorkerConfig(log.InfoLevel, 1024).SetFileHandlerConfig(
                 log.NewDefaultFileHandlerConfig("logs").

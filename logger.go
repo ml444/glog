@@ -62,6 +62,7 @@ type Logger struct {
 	ExitFunc           func(code int) // Function to exit the application, defaults to `os.Exit()`
 	TraceIDFunc        func(entry *message.Entry) string
 	engine             IEngine
+	callerSkip         int
 	enableRecordCaller bool
 	isStop             bool
 }
@@ -89,6 +90,7 @@ func NewLogger(cfg *Config) (*Logger, error) {
 		ExitFunc:           cfg.ExitFunc,
 		TraceIDFunc:        cfg.TraceIDFunc,
 		engine:             eng,
+		callerSkip:         cfg.CallerSkipCount,
 		enableRecordCaller: cfg.EnableRecordCaller,
 	}
 	err = l.init()
@@ -125,7 +127,7 @@ func (l *Logger) send(lvl Level, msg string) {
 	}
 
 	if l.enableRecordCaller {
-		entry.Caller = GetCallerFrame()
+		entry.Caller = GetCallerFrame(l.callerSkip)
 	}
 	l.engine.Send(entry)
 }

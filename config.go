@@ -33,6 +33,8 @@ type Config struct {
 	// Enable recording of caller information
 	EnableRecordCaller bool
 
+	CallerSkipCount int
+
 	// enable color rendering. Only enabled by default in the text formatter.
 	EnableColorRender *bool
 
