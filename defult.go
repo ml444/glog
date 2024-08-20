@@ -87,6 +87,7 @@ func NewDefaultFileHandlerConfig(dir string) *FileHandlerConfig {
 		FileName:          "",
 		MaxFileSize:       defaultMaxFileSize * 4,
 		BulkWriteSize:     10485760, // 10MB
+		BufferSize:		   10000,
 		BackupCount:       24,
 		Interval:          60 * 60, // 1 hour
 		TimeSuffixFmt:     "2006010215",

@@ -47,7 +47,7 @@ func NewFileHandler(cfg *FileHandlerConfig, fm formatter.IFormatter, ft filter.I
 		rotator:       rotator,
 		bulkWriteSize: cfg.BulkWriteSize,
 		ErrorCallback: cfg.ErrCallback,
-		bufChan:       make(chan []byte, 1024),
+		bufChan:       make(chan []byte, cfg.BufferSize),
 		doneChan:      make(chan bool, 100),
 	}
 	go h.flushWorker()

@@ -10,6 +10,7 @@ type FileHandlerConfig struct {
 	MaxFileSize   int64
 	BackupCount   int
 	BulkWriteSize int
+	BufferSize	  int   
 
 	RotatorType       RotatorType
 	Interval          int64  // unit: second. used in TimeRotator and TimeAndSizeRotator.
@@ -39,6 +40,10 @@ func (c *FileHandlerConfig) WithBackupCount(n int) *FileHandlerConfig {
 }
 func (c *FileHandlerConfig) WithBulkSize(size int) *FileHandlerConfig {
 	c.BulkWriteSize = size
+	return c
+}
+func (c *FileHandlerConfig) WithBufferSize(size int) *FileHandlerConfig {
+	c.BufferSize = size
 	return c
 }
 func (c *FileHandlerConfig) WithRotatorType(typ RotatorType) *FileHandlerConfig {

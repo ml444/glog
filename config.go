@@ -228,6 +228,9 @@ func (c *Config) Check() {
 				if cc.BulkWriteSize == 0 {
 					cc.BulkWriteSize = 10485760
 				}
+				if cc.BufferSize == 0 {
+					cc.BufferSize = 10000
+				}
 				if cc.Interval == 0 {
 					cc.Interval = 60 * 60
 				}
