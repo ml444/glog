@@ -100,6 +100,9 @@ func (e *ChannelEngine) Send(entry *message.Entry) {
 		if entry.Level < worker.levelThreshold {
 			continue
 		}
+		if e.stop {
+			return
+		}
 		worker.entryChan <- entry
 	}
 }

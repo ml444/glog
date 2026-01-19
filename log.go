@@ -2,8 +2,6 @@ package log
 
 import (
 	"os"
-	"os/signal"
-	"syscall"
 
 	"github.com/agiledragon/gomonkey/v2"
 
@@ -37,15 +35,15 @@ func init() {
 	if err != nil {
 		panic(err.Error())
 	}
-	{
-		sigCh := make(chan os.Signal, 1)
-		signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
-		go func() {
-			s := <-sigCh
-			println("==> sign exit:", s.String())
-			Stop()
-		}()
-	}
+	// {
+	// 	sigCh := make(chan os.Signal, 1)
+	// 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+	// 	go func() {
+	// 		s := <-sigCh
+	// 		println("==> sign exit:", s.String())
+	// 		Stop()
+	// 	}()
+	// }
 	gomonkey.ApplyFunc(os.Exit, ExitHook)
 }
 
