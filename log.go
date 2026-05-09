@@ -3,8 +3,6 @@ package log
 import (
 	"os"
 
-	"github.com/agiledragon/gomonkey/v2"
-
 	"github.com/ml444/glog/level"
 )
 
@@ -35,16 +33,7 @@ func init() {
 	if err != nil {
 		panic(err.Error())
 	}
-	// {
-	// 	sigCh := make(chan os.Signal, 1)
-	// 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
-	// 	go func() {
-	// 		s := <-sigCh
-	// 		println("==> sign exit:", s.String())
-	// 		Stop()
-	// 	}()
-	// }
-	gomonkey.ApplyFunc(os.Exit, ExitHook)
+	registerShutdownOnSignals()
 }
 
 func InitLog(opts ...OptionFunc) error {
@@ -92,6 +81,10 @@ func Stop() {
 	}
 }
 
-func ExitHook(_ int) {
+// Exit calls Stop to flush asynchronous loggers, then terminates the process with the given code.
+// Use it instead of os.Exit when you need a guaranteed flush before exit; registerShutdownOnSignals
+// does not intercept os.Exit.
+func Exit(code int) {
 	Stop()
+	os.Exit(code)
 }

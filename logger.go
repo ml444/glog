@@ -59,7 +59,7 @@ type Logger struct {
 	Name               string
 	Level              Level
 	ThrowOnLevel       Level
-	ExitFunc           func(code int) // Function to exit the application, defaults to `os.Exit()`
+	ExitFunc           func(code int) // Called after Stop on ThrowOnLevel; defaults to os.Exit (Stop is already invoked in after()).
 	TraceIDFunc        func(entry *message.Entry) string
 	engine             IEngine
 	callerSkip         int

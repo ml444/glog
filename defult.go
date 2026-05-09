@@ -1,6 +1,8 @@
 package log
 
 import (
+	"os"
+
 	"github.com/ml444/glog/formatter"
 	"github.com/ml444/glog/handler"
 )
@@ -36,7 +38,7 @@ func NewDefaultConfig() *Config {
 		LoggerLevel:        PrintLevel,
 		ThrowOnLevel:       NoneLevel,
 		TimeLayout:         DefaultDateTimeFormat,
-		ExitFunc:           ExitHook,
+		ExitFunc:           os.Exit,
 		WorkerConfigList:   []*WorkerConfig{NewDefaultStdoutWorkerConfig()},
 		EnableRecordCaller: false,
 	}

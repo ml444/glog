@@ -165,9 +165,9 @@ func (c *Config) Check() {
 	if c.TimeLayout == "" {
 		c.TimeLayout = DefaultDateTimeFormat
 	}
-	//if c.ExitFunc == nil {
-	//	c.ExitFunc = ExitHook
-	//}
+	if c.ExitFunc == nil {
+		c.ExitFunc = os.Exit
+	}
 	if c.OnError == nil {
 		c.OnError = func(_ interface{}, err error) {
 			println("glog unexpected error: ", err.Error())
