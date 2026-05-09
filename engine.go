@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"sync"
-	"time"
 
 	"github.com/ml444/glog/handler"
 	"github.com/ml444/glog/message"
@@ -21,9 +20,12 @@ type Worker struct {
 	entryChan      chan *message.Entry
 	onError        func(v interface{}, err error)
 	levelThreshold Level
+	// runDone is closed when Run returns (after entryChan is closed and drained).
+	runDone chan struct{}
 }
 
 func (w *Worker) Run() {
+	defer close(w.runDone)
 	for entry := range w.entryChan {
 
 		if entry.Level < w.levelThreshold {
@@ -36,21 +38,11 @@ func (w *Worker) Run() {
 	}
 }
 
-func (w *Worker) Close() {
-	for len(w.entryChan) != 0 {
-		<-time.After(time.Millisecond * 1)
-	}
-	err := w.handler.Close()
-	if err != nil {
-		w.onError(nil, err)
-	}
-}
-
 type ChannelEngine struct {
 	workers []*Worker
 	onError func(v interface{}, err error)
 
-	once *sync.Once
+	mu   sync.RWMutex
 	stop bool
 }
 
@@ -71,6 +63,7 @@ func NewChannelEngine(cfg *Config) (*ChannelEngine, error) {
 			entryChan:      make(chan *message.Entry, workerCfg.CacheSize),
 			onError:        cfg.OnError,
 			levelThreshold: workerCfg.Level,
+			runDone:        make(chan struct{}),
 		})
 	}
 	if len(workers) == 0 {
@@ -80,7 +73,6 @@ func NewChannelEngine(cfg *Config) (*ChannelEngine, error) {
 	return &ChannelEngine{
 		workers: workers,
 		onError: cfg.OnError,
-		once:    &sync.Once{},
 	}, nil
 }
 
@@ -92,31 +84,38 @@ func (e *ChannelEngine) Start() error {
 }
 
 func (e *ChannelEngine) Send(entry *message.Entry) {
+	e.mu.RLock()
+	defer e.mu.RUnlock()
 	if e.stop {
-		e.once.Do(e.closeAllChan)
 		return
 	}
 	for _, worker := range e.workers {
 		if entry.Level < worker.levelThreshold {
 			continue
 		}
-		if e.stop {
-			return
-		}
 		worker.entryChan <- entry
 	}
 }
 
-func (e *ChannelEngine) closeAllChan() {
-	for _, worker := range e.workers {
-		close(worker.entryChan)
-	}
-}
-
 func (e *ChannelEngine) Stop() (err error) {
+	e.mu.Lock()
+	if e.stop {
+		e.mu.Unlock()
+		return nil
+	}
 	e.stop = true
-	for _, worker := range e.workers {
-		worker.Close()
+	for _, w := range e.workers {
+		close(w.entryChan)
+	}
+	e.mu.Unlock()
+
+	for _, w := range e.workers {
+		<-w.runDone
+	}
+	for _, w := range e.workers {
+		if cerr := w.handler.Close(); cerr != nil {
+			w.onError(nil, cerr)
+		}
 	}
 	return nil
 }
