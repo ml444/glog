@@ -2,7 +2,6 @@ package handler
 
 import (
 	"errors"
-	"fmt"
 	"io"
 
 	"github.com/ml444/glog/filter"
@@ -66,7 +65,7 @@ func (h *StreamHandler) emit(msg []byte) error {
 func (h *StreamHandler) Emit(record *message.Entry) error {
 	if h.filter != nil {
 		if ok := h.filter.Filter(record); !ok {
-			return fmt.Errorf("filter out this msg: %v", record)
+			return filter.ErrFilterOut
 		}
 	}
 

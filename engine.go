@@ -3,7 +3,7 @@ package log
 import (
 	"errors"
 	"fmt"
-	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/ml444/glog/handler"
@@ -23,30 +23,49 @@ type Worker struct {
 	levelThreshold Level
 	backpressure   BackpressureConfig
 	stats          BackpressureCounter
-	// runDone is closed when Run returns (after entryChan is closed and drained).
+	stopChan       chan struct{}
+	// runDone is closed when Run returns after stopChan is closed and entryChan is drained.
 	runDone chan struct{}
 }
 
 func (w *Worker) Run() {
 	defer close(w.runDone)
-	for entry := range w.entryChan {
+	for {
+		select {
+		case entry := <-w.entryChan:
+			w.emit(entry)
+		case <-w.stopChan:
+			w.drain()
+			return
+		}
+	}
+}
 
-		if entry.Level < w.levelThreshold {
-			continue
+func (w *Worker) drain() {
+	for {
+		select {
+		case entry := <-w.entryChan:
+			w.emit(entry)
+		default:
+			return
 		}
-		err := w.handler.Emit(entry)
-		if err != nil {
-			w.onError(entry, err)
-		}
+	}
+}
+
+func (w *Worker) emit(entry *message.Entry) {
+	if entry.Level < w.levelThreshold {
+		return
+	}
+	err := w.handler.Emit(entry)
+	if err != nil {
+		w.onError(entry, err)
 	}
 }
 
 type ChannelEngine struct {
 	workers []*Worker
 	onError func(v interface{}, err error)
-
-	mu   sync.RWMutex
-	stop bool
+	stop    uint32
 }
 
 type WorkerStats struct {
@@ -77,6 +96,7 @@ func NewChannelEngine(cfg *Config) (*ChannelEngine, error) {
 			onError:        cfg.OnError,
 			levelThreshold: workerCfg.Level,
 			backpressure:   workerCfg.Backpressure,
+			stopChan:       make(chan struct{}),
 			runDone:        make(chan struct{}),
 		})
 	}
@@ -98,9 +118,7 @@ func (e *ChannelEngine) Start() error {
 }
 
 func (e *ChannelEngine) Send(entry *message.Entry) {
-	e.mu.RLock()
-	defer e.mu.RUnlock()
-	if e.stop {
+	if atomic.LoadUint32(&e.stop) == 1 {
 		return
 	}
 	for _, worker := range e.workers {
@@ -115,8 +133,16 @@ func (w *Worker) Send(entry *message.Entry) {
 	switch w.backpressure.Strategy {
 	case BackpressureStrategyDrop:
 		select {
+		case <-w.stopChan:
+			w.stats.AddDropped()
+			return
+		default:
+		}
+		select {
 		case w.entryChan <- entry:
 			w.stats.AddEnqueued()
+		case <-w.stopChan:
+			w.stats.AddDropped()
 		default:
 			w.stats.AddDropped()
 			w.onError(entry, handler.ErrBackpressureDropped)
@@ -127,40 +153,54 @@ func (w *Worker) Send(entry *message.Entry) {
 		select {
 		case w.entryChan <- entry:
 			w.stats.AddEnqueued()
+		case <-w.stopChan:
+			w.stats.AddDropped()
 		case <-timer.C:
 			w.stats.AddTimedOut()
 			w.onError(entry, handler.ErrBackpressureTimeout)
 		}
 	case BackpressureStrategySample:
 		select {
+		case <-w.stopChan:
+			w.stats.AddDropped()
+			return
+		default:
+		}
+		select {
 		case w.entryChan <- entry:
 			w.stats.AddEnqueued()
+		case <-w.stopChan:
+			w.stats.AddDropped()
 		default:
 			if w.stats.AllowSample(w.backpressure.SampleRate) {
-				w.entryChan <- entry
-				w.stats.AddEnqueued()
+				select {
+				case w.entryChan <- entry:
+					w.stats.AddEnqueued()
+				case <-w.stopChan:
+					w.stats.AddDropped()
+				}
 				return
 			}
 			w.stats.AddDropped()
 			w.onError(entry, handler.ErrBackpressureDropped)
 		}
 	default:
-		w.entryChan <- entry
-		w.stats.AddEnqueued()
+		select {
+		case w.entryChan <- entry:
+			w.stats.AddEnqueued()
+		case <-w.stopChan:
+			w.stats.AddDropped()
+		}
 	}
 }
 
 func (e *ChannelEngine) Stop() (err error) {
-	e.mu.Lock()
-	if e.stop {
-		e.mu.Unlock()
+	if !atomic.CompareAndSwapUint32(&e.stop, 0, 1) {
 		return nil
 	}
-	e.stop = true
 	for _, w := range e.workers {
-		close(w.entryChan)
+		close(w.stopChan)
 	}
-	e.mu.Unlock()
 
 	for _, w := range e.workers {
 		<-w.runDone
@@ -174,9 +214,6 @@ func (e *ChannelEngine) Stop() (err error) {
 }
 
 func (e *ChannelEngine) Stats() LoggerStats {
-	e.mu.RLock()
-	defer e.mu.RUnlock()
-
 	stats := LoggerStats{Workers: make([]WorkerStats, 0, len(e.workers))}
 	for _, w := range e.workers {
 		workerStats := WorkerStats{

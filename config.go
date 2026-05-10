@@ -194,7 +194,7 @@ func (c *Config) Check() {
 			NewDefaultStdoutWorkerConfig(),
 		}
 	}
-	validWorkerConfigs := c.WorkerConfigList[:0]
+	var validWorkerConfigs  []*WorkerConfig
 	for _, workerCfg := range c.WorkerConfigList {
 		if workerCfg == nil {
 			continue
