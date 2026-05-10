@@ -4,7 +4,7 @@
 [![Coverage](https://img.shields.io/badge/version-v0.1.0-blue)](https://github.com/ml444/glog/releases/tag/v0.1.0)
 
 Glog 是一个异步的日志记录器的库，通过配置缓存大小来适应不同的高并发需求。
-同时通过各种细粒度的配置来控制日志记录器的不同行为和记录方式。
+同时通过各种细粒度的配置来控制日志记录器的不同行为和记录方式，包括高负载场景下的背压策略和计数指标。
 
 ## 快速开始
 ```go
@@ -108,26 +108,95 @@ func InitLogger() error {
 					WithBackupCount(12).            // 保留的日志文件数量
 					WithBulkSize(1024*1024).        // 批量写入硬盘的大小
 					WithInterval(60*60).            // 日志按每小时滚动切割
-					WithRotatorType(log.FileRotatorTypeTimeAndSize),            
-            ).SetJSONFormatterConfig(
-                log.NewDefaultJSONFormatterConfig().WithBaseFormatterConfig(
-                    log.NewDefaultBaseFormatterConfig().
-                        WithEnableHostname().       // 记录服务器的hostname
-                        WithEnableTimestamp().      // 记录时间戳
-                        WithEnablePid().            // 记录进程ID
-                        WithEnableIP(),             // 记录服务器IP
-                ),
-            ),
+					WithRotatorType(log.FileRotatorTypeTimeAndSize),
+			).SetJSONFormatterConfig(
+				log.NewDefaultJSONFormatterConfig().WithBaseFormatterConfig(
+					log.NewDefaultBaseFormatterConfig().
+						WithEnableHostname().       // 记录服务器的hostname
+						WithEnableTimestamp().      // 记录时间戳
+						WithEnablePid().            // 记录进程ID
+						WithEnableIP(),             // 记录服务器IP
+				),
+			),
 		),
 	)
 }
 ```
 文件存储日志时，使用滚动的方式保持文件，默认值保留最新的24份，可以根据自己的实际需求调整备份数量 `FileHandlerConfig.WithBackupCount(count int)`。
-并且滚动的方式可以通过按指定大小滚动(`FileRotatorTypeTime`)、按时间滚动(`FileRotatorTypeSize`)、按时间和大小共同限制滚动(`FileRotatorTypeTimeAndSize`)。
+并且滚动的方式可以通过按指定大小滚动(`FileRotatorTypeSize`)、按时间滚动(`FileRotatorTypeTime`)、按时间和大小共同限制滚动(`FileRotatorTypeTimeAndSize`)。
 这里特别说明一下第三种`FileRotatorTypeTimeAndSize`，它是按时间滚动的，但是当它到达指定的大小上限后，它就停止记录日志了，会抛弃剩下的日志，直到下一个时间点的新文件开始前。
 这样做的目的是保护服务器的磁盘。
 
-更多详细配置可以查看代码：`option.go` 和 `config.go`。
+更多详细配置可以查看代码：`option.go`、`config.go`、`default.go` 和 `handler/cfg.go`。
+
+### 背压策略和计数指标
+`glog` 有两层异步队列：
+
+1. 每个 worker 前面的队列，通过 `WorkerConfig.SetBackpressure` 配置。
+2. 文件 handler 写入磁盘前的内部 buffer，通过 `FileHandlerConfig.WithBackpressure` 配置。
+
+worker 队列默认使用 `BackpressureStrategyBlock`，保持原来的阻塞行为。文件 handler buffer 默认使用 `BackpressureStrategyDrop`，保持原来 buffer 满时丢弃并回调错误的行为。
+
+可选策略：
+
+| 策略 | 行为 |
+| --- | --- |
+| `BackpressureStrategyBlock` | 等待队列有空间。可以尽量保留日志，但可能拖慢调用方。 |
+| `BackpressureStrategyDrop` | 队列满时立即丢弃，并触发 `OnError`/`ErrCallback`。 |
+| `BackpressureStrategyTimeout` | 最多等待 `Timeout`，超时后记录 `TimedOut` 并返回 `ErrBackpressureTimeout`。 |
+| `BackpressureStrategySample` | 队列满时每 `SampleRate` 次保留一条，其余丢弃。 |
+
+示例：
+
+```go
+import (
+	"fmt"
+	"time"
+)
+
+func InitLogger() error {
+	return log.InitLog(
+		log.SetLoggerName("serviceName"),
+		log.SetOnError(func(v interface{}, err error) {
+			// 可以接入你的 metrics 或告警系统
+			fmt.Printf("log backpressure: %v\n", err)
+		}),
+		log.SetWorkerConfigs(
+			log.NewWorkerConfig(log.InfoLevel, 1024).
+				SetBackpressure(
+					log.NewBackpressureConfig(log.BackpressureStrategyTimeout).
+						WithTimeout(50 * time.Millisecond),
+				).
+				SetFileHandlerConfig(
+					log.NewDefaultFileHandlerConfig("./logs").
+						WithBackpressure(
+							log.NewBackpressureConfig(log.BackpressureStrategyDrop),
+						),
+				).
+				SetJSONFormatterConfig(log.NewDefaultJSONFormatterConfig()),
+		),
+	)
+}
+```
+
+可以通过 `log.Stats()` 或 `logger.Stats()` 读取背压计数：
+
+```go
+stats := log.Stats()
+for _, worker := range stats.Workers {
+	fmt.Printf("queue: %+v file-buffer: %+v\n",
+		worker.QueueBackpressure,
+		worker.HandlerBackpressure,
+	)
+}
+```
+
+每组计数包含：
+
+- `Enqueued`：成功进入队列或文件 buffer 的日志数。
+- `Dropped`：被 `Drop` 或 `Sample` 策略丢弃的日志数。
+- `TimedOut`：等待超时后被拒绝的日志数。
+- `Sampled`：在背压期间由采样策略保留下来的日志数。
 
 ### 日志等级
 为了兼容标准库的logging等级，加入了print、fatal、panic三个等级:
@@ -180,14 +249,14 @@ func InitLogger() error {
 		log.SetWorkerConfigs(
 			log.NewDefaultStdoutWorkerConfig(),     // 输出到标准输出
 			log.NewDefaultJsonFileWorkerConfig("./logs").SetLevel(log.ErrorLevel),  // Error以上的等级输出到文件
-        ),
+		),
 	)
 }
 ```
 
 ## Pattern template
 使用text模式输出日志时，可以通过配置样式模版来控制日志的展示数据及各个信息的顺序。
-默认使用：`PatternTemplate1 = "%[LoggerName]s (%[Pid]d,%[RoutineId]d) %[DateTime]s.%[Msecs]d %[LevelName]s %[Caller]s %[Message]v"`
+默认使用：`PatternTemplateWithDefault = "%[LoggerName]s (%[Pid]d,%[RoutineId]d) %[DateTime]s %[LevelName]s %[ShortCaller]s %[Message]v"`
 你可以自己调整其中字段的顺序以及增删，例如： `"<<%[Pid]d,%[RoutineId]d>> %[LoggerName]s %[DateTime]s %[LevelName]s %[Message]v %[Caller]s"`
 你可以根据自己的喜好进行配置。
 以下是所有可以配置的选项：

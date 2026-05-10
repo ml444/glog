@@ -189,6 +189,13 @@ func (r *TimeRotator) getFilepath() string {
 }
 
 func (r *TimeRotator) NeedRollover(_ []byte) (*os.File, bool, error) {
+	if r.file == nil {
+		var err error
+		r.file, err = open(r.filePath)
+		if err != nil {
+			return r.file, false, err
+		}
+	}
 	t := time.Now().Unix()
 	if t >= r.rolloverAt {
 		return r.file, true, nil

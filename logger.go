@@ -4,11 +4,10 @@ import (
 	"fmt"
 	"runtime"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/petermattis/goid"
-
-	"github.com/ml444/glog/formatter"
 
 	"github.com/ml444/glog/message"
 )
@@ -64,7 +63,7 @@ type Logger struct {
 	engine             IEngine
 	callerSkip         int
 	enableRecordCaller bool
-	isStop             bool
+	isStop             uint32
 }
 
 // type FieldFunc func(entry *message.Entry) string
@@ -106,12 +105,11 @@ func (l *Logger) init() (err error) {
 		_ = l.Stop()
 		return err
 	}
-	formatter.SetLoggerName(l.Name)
 	return nil
 }
 
 func (l *Logger) send(lvl Level, msg string) {
-	if l.isStop {
+	if atomic.LoadUint32(&l.isStop) == 1 {
 		println("it is stoped, can't send: ", msg)
 		return
 	}
@@ -249,7 +247,14 @@ func (l *Logger) Fatalf(template string, args ...interface{}) {
 
 func (l *Logger) Stop() error {
 	defer func() {
-		l.isStop = true
+		atomic.StoreUint32(&l.isStop, 1)
 	}()
 	return l.engine.Stop()
+}
+
+func (l *Logger) Stats() LoggerStats {
+	if eng, ok := l.engine.(interface{ Stats() LoggerStats }); ok {
+		return eng.Stats()
+	}
+	return LoggerStats{}
 }

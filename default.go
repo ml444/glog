@@ -10,16 +10,34 @@ import (
 const (
 	PatternTemplateWithDefault = "%[LoggerName]s (%[Pid]d,%[RoutineId]d) %[DateTime]s %[LevelName]s %[ShortCaller]s %[Message]v"
 	PatternTemplateWithSimple  = "%[LevelName]s %[DateTime]s %[ShortCaller]s %[Message]v"
-	PatternTemplateWithTrace   = "<%[TradeId]s> %[LoggerName]s (%[Pid]d,%[RoutineId]d) %[DateTime]s %[LevelName]s %[ShortCaller]s %[Message]v"
+	PatternTemplateWithTrace   = "<%[TraceId]s> %[LoggerName]s (%[Pid]d,%[RoutineId]d) %[DateTime]s %[LevelName]s %[ShortCaller]s %[Message]v"
 )
 
 type RotatorType = handler.RotatorType
+type BackpressureCounter = handler.BackpressureCounter
 
 const (
 	FileRotatorTypeTime        RotatorType = 1
 	FileRotatorTypeSize        RotatorType = 2
 	FileRotatorTypeTimeAndSize RotatorType = 3
 )
+const (
+	BackpressureStrategyUnset   BackpressureStrategy = handler.BackpressureStrategyUnset
+	BackpressureStrategyBlock   BackpressureStrategy = handler.BackpressureStrategyBlock
+	BackpressureStrategyDrop    BackpressureStrategy = handler.BackpressureStrategyDrop
+	BackpressureStrategyTimeout BackpressureStrategy = handler.BackpressureStrategyTimeout
+	BackpressureStrategySample  BackpressureStrategy = handler.BackpressureStrategySample
+)
+
+func NewBackpressureConfig(strategy BackpressureStrategy) BackpressureConfig {
+	return handler.NewBackpressureConfig(strategy)
+}
+
+var (
+	ErrBackpressureDropped = handler.ErrBackpressureDropped
+	ErrBackpressureTimeout = handler.ErrBackpressureTimeout
+)
+
 const (
 	FileRotatorSuffixFmt1 = "20060102150405"
 	FileRotatorSuffixFmt2 = "2006-01-02T15-04-05"
@@ -89,7 +107,7 @@ func NewDefaultFileHandlerConfig(dir string) *FileHandlerConfig {
 		FileName:          "",
 		MaxFileSize:       defaultMaxFileSize * 4,
 		BulkWriteSize:     10485760, // 10MB
-		BufferSize:		   10000,
+		BufferSize:        10000,
 		BackupCount:       24,
 		Interval:          60 * 60, // 1 hour
 		TimeSuffixFmt:     "2006010215",
@@ -117,7 +135,7 @@ func NewDefaultJSONFormatterConfig() *JSONFormatterConfig {
 		BaseFormatterConfig: BaseFormatterConfig{
 			TimeLayout: DefaultDateTimeFormat,
 		},
-		PrettyPrint: true,
+		PrettyPrint: false,
 	}
 }
 
@@ -139,7 +157,7 @@ func newHandler(workerCfg *WorkerConfig) (handler.IHandler, error) {
 	}
 	fm := workerCfg.CustomFormatter
 	if fm == nil {
-		fm = newFormatter(workerCfg.FormatterCfg)
+		fm = newFormatter(workerCfg.FormatterCfg, workerCfg.loggerName)
 	}
 	handlerCfg := workerCfg.HandlerCfg
 	if handlerCfg.File != nil {
@@ -154,7 +172,7 @@ func newHandler(workerCfg *WorkerConfig) (handler.IHandler, error) {
 	return handler.NewStdoutHandler(fm, workerCfg.CustomFilter)
 }
 
-func newFormatter(formatterCfg FormatterConfig) formatter.IFormatter {
+func newFormatter(formatterCfg FormatterConfig, loggerName string) formatter.IFormatter {
 	if formatterCfg.Text != nil {
 		return formatter.NewTextFormatter(*formatterCfg.Text)
 	}
@@ -166,6 +184,7 @@ func newFormatter(formatterCfg FormatterConfig) formatter.IFormatter {
 	}
 	return formatter.NewTextFormatter(TextFormatterConfig{
 		BaseFormatterConfig: BaseFormatterConfig{
+			LoggerName: loggerName,
 			TimeLayout: DefaultDateTimeFormat,
 		},
 		PatternStyle: PatternTemplateWithDefault,

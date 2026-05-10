@@ -3,7 +3,7 @@ package message
 type Record struct {
 	Pid        int    `json:"pid,omitempty"`
 	RoutineID  int64  `json:"routine_id,omitempty"`
-	Service    string `json:"module,omitempty"`
+	Module     string `json:"module,omitempty"`
 	Level      string `json:"level,omitempty"`
 	Datetime   string `json:"datetime,omitempty"`
 	Timestamp  int64  `json:"timestamp,omitempty"`

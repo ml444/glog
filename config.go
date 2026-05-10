@@ -68,6 +68,9 @@ type Config struct {
 type FileHandlerConfig = handler.FileHandlerConfig
 type StreamHandlerConfig = handler.StreamHandlerConfig
 type SyslogHandlerConfig = handler.SyslogHandlerConfig
+type BackpressureStrategy = handler.BackpressureStrategy
+type BackpressureConfig = handler.BackpressureConfig
+type BackpressureStats = handler.BackpressureStats
 
 type BaseFormatterConfig = formatter.BaseFormatterConfig
 type TextFormatterConfig = formatter.TextFormatterConfig
@@ -94,6 +97,8 @@ type WorkerConfig struct {
 	CustomHandler   handler.IHandler
 	CustomFilter    filter.IFilter
 	CustomFormatter formatter.IFormatter
+	Backpressure    BackpressureConfig
+	loggerName      string
 }
 
 func NewWorkerConfig(level Level, size int) *WorkerConfig {
@@ -102,6 +107,16 @@ func NewWorkerConfig(level Level, size int) *WorkerConfig {
 
 func (w *WorkerConfig) SetCacheSize(size int) *WorkerConfig {
 	w.CacheSize = size
+	return w
+}
+
+func (w *WorkerConfig) SetBackpressure(config BackpressureConfig) *WorkerConfig {
+	w.Backpressure = config
+	return w
+}
+
+func (w *WorkerConfig) SetBackpressureStrategy(strategy BackpressureStrategy) *WorkerConfig {
+	w.Backpressure.Strategy = strategy
 	return w
 }
 
@@ -178,92 +193,109 @@ func (c *Config) Check() {
 		c.WorkerConfigList = []*WorkerConfig{
 			NewDefaultStdoutWorkerConfig(),
 		}
-	} else {
-		for i, workerCfg := range c.WorkerConfigList {
-			if workerCfg.CacheSize == 0 {
-				workerCfg.CacheSize = 1024
+	}
+	validWorkerConfigs := c.WorkerConfigList[:0]
+	for _, workerCfg := range c.WorkerConfigList {
+		if workerCfg == nil {
+			continue
+		}
+		validWorkerConfigs = append(validWorkerConfigs, workerCfg)
+		workerCfg.loggerName = c.LoggerName
+		if workerCfg.CacheSize == 0 {
+			workerCfg.CacheSize = 1024
+		}
+		if workerCfg.Level == 0 {
+			workerCfg.Level = PrintLevel
+		}
+		workerCfg.Backpressure = workerCfg.Backpressure.Normalize(handler.BackpressureStrategyBlock)
+		if workerCfg.CustomHandler != nil {
+			continue
+		}
+		if cc := workerCfg.FormatterCfg.Text; cc != nil {
+			if cc.LoggerName == "" {
+				cc.LoggerName = c.LoggerName
 			}
-			if workerCfg.Level == 0 {
-				workerCfg.Level = PrintLevel
-			}
-			if workerCfg.CustomHandler != nil {
-				continue
-			}
-			// remove Worker is nil
-			if workerCfg == nil {
-				c.WorkerConfigList = append(c.WorkerConfigList[:i], c.WorkerConfigList[i+1:]...)
-			}
-			if cc := workerCfg.FormatterCfg.Text; cc != nil {
-				if cc.TimeLayout == "" {
-					cc.TimeLayout = c.TimeLayout
-				}
-				if c.EnableColorRender != nil && cc.EnableColor == false {
-					cc.EnableColor = *c.EnableColorRender
-				}
-			}
-			if cc := workerCfg.FormatterCfg.JSON; cc != nil && cc.TimeLayout == "" {
+			if cc.TimeLayout == "" {
 				cc.TimeLayout = c.TimeLayout
 			}
-			if cc := workerCfg.FormatterCfg.XML; cc != nil && cc.TimeLayout == "" {
+			if c.EnableColorRender != nil && cc.EnableColor == false {
+				cc.EnableColor = *c.EnableColorRender
+			}
+		}
+		if cc := workerCfg.FormatterCfg.JSON; cc != nil {
+			if cc.LoggerName == "" {
+				cc.LoggerName = c.LoggerName
+			}
+			if cc.TimeLayout == "" {
 				cc.TimeLayout = c.TimeLayout
 			}
-			if cc := workerCfg.HandlerCfg.File; cc != nil {
-				if cc.FileName == "" {
-					cc.FileName = c.LoggerName
-				}
-				if cc.FileDir == "" {
-					curDir, err := os.Getwd()
-					if err != nil {
-						println(err.Error())
-					} else {
-						cc.FileDir = curDir
-					}
-				}
-				if cc.RotatorType == 0 {
-					cc.RotatorType = handler.FileRotatorTypeTimeAndSize
-				}
-				if cc.MaxFileSize == 0 {
-					cc.MaxFileSize = defaultMaxFileSize
-				}
-				if cc.BulkWriteSize == 0 {
-					cc.BulkWriteSize = 10485760
-				}
-				if cc.BufferSize == 0 {
-					cc.BufferSize = 10000
-				}
-				if cc.Interval == 0 {
-					cc.Interval = 60 * 60
-				}
-				if cc.TimeSuffixFmt == "" {
-					cc.TimeSuffixFmt = "2006010215"
-				}
-				if cc.ReMatch == "" {
-					cc.ReMatch = `^\d{4}\d{2}\d{2}\d{2}(\.\w+)?$`
-				}
-				if cc.FileSuffix == "" {
-					cc.FileSuffix = "log"
-				}
-				if cc.ErrCallback == nil {
-					cc.ErrCallback = c.OnError
+		}
+		if cc := workerCfg.FormatterCfg.XML; cc != nil {
+			if cc.LoggerName == "" {
+				cc.LoggerName = c.LoggerName
+			}
+			if cc.TimeLayout == "" {
+				cc.TimeLayout = c.TimeLayout
+			}
+		}
+		if cc := workerCfg.HandlerCfg.File; cc != nil {
+			if cc.FileName == "" {
+				cc.FileName = c.LoggerName
+			}
+			if cc.FileDir == "" {
+				curDir, err := os.Getwd()
+				if err != nil {
+					println(err.Error())
+				} else {
+					cc.FileDir = curDir
 				}
 			}
+			if cc.RotatorType == 0 {
+				cc.RotatorType = handler.FileRotatorTypeTimeAndSize
+			}
+			if cc.MaxFileSize == 0 {
+				cc.MaxFileSize = defaultMaxFileSize
+			}
+			if cc.BulkWriteSize == 0 {
+				cc.BulkWriteSize = 10485760
+			}
+			if cc.BufferSize == 0 {
+				cc.BufferSize = 10000
+			}
+			cc.Backpressure = cc.Backpressure.Normalize(handler.BackpressureStrategyDrop)
+			if cc.Interval == 0 {
+				cc.Interval = 60 * 60
+			}
+			if cc.TimeSuffixFmt == "" {
+				cc.TimeSuffixFmt = "2006010215"
+			}
+			if cc.ReMatch == "" {
+				cc.ReMatch = `^\d{4}\d{2}\d{2}\d{2}(\.\w+)?$`
+			}
+			if cc.FileSuffix == "" {
+				cc.FileSuffix = "log"
+			}
+			if cc.ErrCallback == nil {
+				cc.ErrCallback = c.OnError
+			}
+		}
 
-			if cc := workerCfg.HandlerCfg.Stream; cc != nil {
-				if cc.Streamer == nil {
-					cc.Streamer = os.Stdout
-				}
+		if cc := workerCfg.HandlerCfg.Stream; cc != nil {
+			if cc.Streamer == nil {
+				cc.Streamer = os.Stdout
 			}
-			if cc := workerCfg.HandlerCfg.Syslog; cc != nil {
-				if cc.Network == "" {
-					cc.Network = "udp"
-				}
-				if cc.Address == "" {
-					cc.Address = "localhost:514"
-				}
-				if cc.Tag == "" {
-					cc.Tag = c.LoggerName
-				}
+		}
+		if cc := workerCfg.HandlerCfg.Syslog; cc != nil {
+			if cc.Network == "" {
+				cc.Network = "udp"
+			}
+			if cc.Address == "" {
+				cc.Address = "localhost:514"
+			}
+			if cc.Tag == "" {
+				cc.Tag = c.LoggerName
 			}
 		}
 	}
+	c.WorkerConfigList = validWorkerConfigs
 }

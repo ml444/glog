@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/ml444/glog/handler"
 	"github.com/ml444/glog/message"
@@ -20,6 +21,8 @@ type Worker struct {
 	entryChan      chan *message.Entry
 	onError        func(v interface{}, err error)
 	levelThreshold Level
+	backpressure   BackpressureConfig
+	stats          BackpressureCounter
 	// runDone is closed when Run returns (after entryChan is closed and drained).
 	runDone chan struct{}
 }
@@ -46,6 +49,16 @@ type ChannelEngine struct {
 	stop bool
 }
 
+type WorkerStats struct {
+	Level               Level
+	QueueBackpressure   BackpressureStats
+	HandlerBackpressure BackpressureStats
+}
+
+type LoggerStats struct {
+	Workers []WorkerStats
+}
+
 func NewChannelEngine(cfg *Config) (*ChannelEngine, error) {
 	if cfg.OnError == nil {
 		cfg.OnError = func(v interface{}, err error) {
@@ -63,6 +76,7 @@ func NewChannelEngine(cfg *Config) (*ChannelEngine, error) {
 			entryChan:      make(chan *message.Entry, workerCfg.CacheSize),
 			onError:        cfg.OnError,
 			levelThreshold: workerCfg.Level,
+			backpressure:   workerCfg.Backpressure,
 			runDone:        make(chan struct{}),
 		})
 	}
@@ -93,7 +107,46 @@ func (e *ChannelEngine) Send(entry *message.Entry) {
 		if entry.Level < worker.levelThreshold {
 			continue
 		}
-		worker.entryChan <- entry
+		worker.Send(entry)
+	}
+}
+
+func (w *Worker) Send(entry *message.Entry) {
+	switch w.backpressure.Strategy {
+	case BackpressureStrategyDrop:
+		select {
+		case w.entryChan <- entry:
+			w.stats.AddEnqueued()
+		default:
+			w.stats.AddDropped()
+			w.onError(entry, handler.ErrBackpressureDropped)
+		}
+	case BackpressureStrategyTimeout:
+		timer := time.NewTimer(w.backpressure.Timeout)
+		defer timer.Stop()
+		select {
+		case w.entryChan <- entry:
+			w.stats.AddEnqueued()
+		case <-timer.C:
+			w.stats.AddTimedOut()
+			w.onError(entry, handler.ErrBackpressureTimeout)
+		}
+	case BackpressureStrategySample:
+		select {
+		case w.entryChan <- entry:
+			w.stats.AddEnqueued()
+		default:
+			if w.stats.AllowSample(w.backpressure.SampleRate) {
+				w.entryChan <- entry
+				w.stats.AddEnqueued()
+				return
+			}
+			w.stats.AddDropped()
+			w.onError(entry, handler.ErrBackpressureDropped)
+		}
+	default:
+		w.entryChan <- entry
+		w.stats.AddEnqueued()
 	}
 }
 
@@ -118,4 +171,22 @@ func (e *ChannelEngine) Stop() (err error) {
 		}
 	}
 	return nil
+}
+
+func (e *ChannelEngine) Stats() LoggerStats {
+	e.mu.RLock()
+	defer e.mu.RUnlock()
+
+	stats := LoggerStats{Workers: make([]WorkerStats, 0, len(e.workers))}
+	for _, w := range e.workers {
+		workerStats := WorkerStats{
+			Level:             w.levelThreshold,
+			QueueBackpressure: w.stats.Snapshot(),
+		}
+		if provider, ok := w.handler.(handler.BackpressureStatsProvider); ok {
+			workerStats.HandlerBackpressure = provider.BackpressureStats()
+		}
+		stats.Workers = append(stats.Workers, workerStats)
+	}
+	return stats
 }

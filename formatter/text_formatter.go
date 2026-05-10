@@ -94,7 +94,7 @@ func (f *TextFormatter) ColorRender(b *bytes.Buffer, m *message.Record) {
 	//f.writeTimeMs(b, m)
 	b.WriteByte(' ')
 	b.WriteByte('<')
-	f.writeTradeID(b, m)
+	f.writeTraceID(b, m)
 	b.WriteByte('>')
 	b.WriteByte(' ')
 	f.writeLogLevel(b, m)
@@ -131,10 +131,10 @@ func (f *TextFormatter) needsQuoting(text string) bool {
 }
 
 func (f *TextFormatter) writeLogName(b *bytes.Buffer, m *message.Record) {
-	if m.Service == "" {
+	if m.Module == "" {
 		return
 	}
-	b.WriteString(m.Service)
+	b.WriteString(m.Module)
 }
 
 func (f *TextFormatter) writePid(b *bytes.Buffer, _ *message.Record) {
@@ -157,7 +157,7 @@ func (f *TextFormatter) writeDateTime(b *bytes.Buffer, m *message.Record) {
 	b.WriteString(m.Datetime)
 }
 
-func (f *TextFormatter) writeTradeID(b *bytes.Buffer, m *message.Record) {
+func (f *TextFormatter) writeTraceID(b *bytes.Buffer, m *message.Record) {
 	if m.TraceID != "" {
 		b.WriteString(m.TraceID)
 	}
@@ -241,7 +241,7 @@ func (f *TextFormatter) parseWriteFuncList(src string) {
 		"CallerPath":  f.writeFilepath,
 		"CallerLine":  f.writeFuncLine,
 		"CallerName":  f.writeFuncName,
-		"TradeId":     f.writeTradeID,
+		"TraceId":     f.writeTraceID,
 		"LevelName":   f.writeLogLevel,
 		//"LevelNo":    f.writeLogLevelNo,
 		"DateTime": f.writeDateTime,

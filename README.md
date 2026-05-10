@@ -9,7 +9,8 @@
 Glog is a library of asynchronous loggers, with configurable cache sizes to
 accommodate different high concurrency requirements. It also controls the
 different behaviors and logging methods of the logger through various
-fine-grained configurations.
+fine-grained configurations, including backpressure strategies and counters for
+busy logging pipelines.
 
 ## Quick start
 
@@ -110,32 +111,101 @@ func InitLogger() error {
 		log.SetRecordCaller(0),        // enable record caller info
 		log.SetWorkerConfigs(
 			log.NewWorkerConfig(log.InfoLevel, 1024).SetFileHandlerConfig(
-                log.NewDefaultFileHandlerConfig("logs").
+				log.NewDefaultFileHandlerConfig("logs").
 					WithFileName("text_log").       // also specify a file name
 					WithFileSize(1024*1024*1024).   // 1GB
 					WithBackupCount(12).            // number of log files to keep
 					WithBulkSize(1024*1024).        // batch write size to hard drive
 					WithInterval(60*60).            // logs are cut on an hourly basis on a rolling basis
-					WithRotatorType(log.FileRotatorTypeTimeAndSize),            
-            ).SetJSONFormatterConfig(
-                log.NewDefaultJSONFormatterConfig().WithBaseFormatterConfig(
-                    log.NewDefaultBaseFormatterConfig().
-                        WithEnableHostname().       // record the hostname of the server
-                        WithEnableTimestamp().      // record timestamp
-                        WithEnablePid().            // record process id
-                        WithEnableIP(),             // record server ip
-                ),
-            ),
+					WithRotatorType(log.FileRotatorTypeTimeAndSize),
+			).SetJSONFormatterConfig(
+				log.NewDefaultJSONFormatterConfig().WithBaseFormatterConfig(
+					log.NewDefaultBaseFormatterConfig().
+						WithEnableHostname().       // record the hostname of the server
+						WithEnableTimestamp().      // record timestamp
+						WithEnablePid().            // record process id
+						WithEnableIP(),             // record server ip
+				),
+			),
 		),
 	)
 }
 ```
-In the log storage selection with files, use the rolling way to keep the files, the default value to keep the latest 24 copies, you can adjust the number of backups according to your actual needs `SetFileBackupCount2Logger()`.
-And the way of scrolling can be done by scrolling by specified size (`FileRotatorTypeTime`), scrolling by time (`FileRotatorTypeSize`), scrolling by time and size common limit (`FileRotatorTypeTimeAndSize`).
-The third type of `FileRotatorTypeTimeAndSize` is described here in particular. It scrolls by time, but when it reaches the specified size limit, it stops logging and discards the rest of the log until the next point in time before a new file starts.
+In the log storage selection with files, use the rolling way to keep the files, the default value to keep the latest 24 copies, you can adjust the number of backups according to your actual needs `FileHandlerConfig.WithBackupCount(count int)`.
+And the way of rolling can be done by rolling by specified size (`FileRotatorTypeSize`), rolling by time (`FileRotatorTypeTime`), rolling by time and size common limit (`FileRotatorTypeTimeAndSize`).
+The third type of `FileRotatorTypeTimeAndSize` is described here in particular. It rolls by time, but when it reaches the specified size limit, it stops logging and discards the rest of the log until the next point in time before a new file starts.
 This is done to protect the server's disk.
 
-More detailed configuration can be seen in the code: `config/option.go` and `config/config.go`.
+More detailed configuration can be seen in the code: `option.go`, `config.go`, `default.go`, and `handler/cfg.go`.
+
+### Backpressure strategy and counters
+`glog` has two asynchronous queues:
+
+1. the worker queue in front of each handler, configured by `WorkerConfig.SetBackpressure`.
+2. the file handler buffer before disk writes, configured by `FileHandlerConfig.WithBackpressure`.
+
+The worker queue defaults to `BackpressureStrategyBlock`, which preserves the old blocking behavior. The file handler buffer defaults to `BackpressureStrategyDrop`, which preserves the old behavior of dropping when the internal buffer is full.
+
+Available strategies:
+
+| Strategy | Behavior |
+| --- | --- |
+| `BackpressureStrategyBlock` | Wait until the queue has room. This preserves logs but can slow callers down. |
+| `BackpressureStrategyDrop` | Drop immediately when the queue is full and call `OnError`/`ErrCallback`. |
+| `BackpressureStrategyTimeout` | Wait up to `Timeout`, then count a timeout and report `ErrBackpressureTimeout`. |
+| `BackpressureStrategySample` | When full, keep one message every `SampleRate` attempts and drop the rest. |
+
+Example:
+
+```go
+import (
+	"fmt"
+	"time"
+)
+
+func InitLogger() error {
+	return log.InitLog(
+		log.SetLoggerName("serviceName"),
+		log.SetOnError(func(v interface{}, err error) {
+			// send this to your metrics or alerting system
+			fmt.Printf("log backpressure: %v\n", err)
+		}),
+		log.SetWorkerConfigs(
+			log.NewWorkerConfig(log.InfoLevel, 1024).
+				SetBackpressure(
+					log.NewBackpressureConfig(log.BackpressureStrategyTimeout).
+						WithTimeout(50 * time.Millisecond),
+				).
+				SetFileHandlerConfig(
+					log.NewDefaultFileHandlerConfig("./logs").
+						WithBackpressure(
+							log.NewBackpressureConfig(log.BackpressureStrategyDrop),
+						),
+				).
+				SetJSONFormatterConfig(log.NewDefaultJSONFormatterConfig()),
+		),
+	)
+}
+```
+
+Backpressure counters can be read through `log.Stats()` or `logger.Stats()`:
+
+```go
+stats := log.Stats()
+for _, worker := range stats.Workers {
+	fmt.Printf("queue: %+v file-buffer: %+v\n",
+		worker.QueueBackpressure,
+		worker.HandlerBackpressure,
+	)
+}
+```
+
+Each counter group contains:
+
+- `Enqueued`: messages accepted by the queue or file buffer.
+- `Dropped`: messages dropped by `Drop` or `Sample`.
+- `TimedOut`: messages rejected after a timeout.
+- `Sampled`: messages kept by the sample strategy while under pressure.
 
 ### Enum of levels
 To be compatible with the logging levels of the standard library, three levels 
@@ -196,7 +266,7 @@ func InitLogger() error {
 
 ## Pattern template
 When using text format mode to output logs, you can control the display data and the order of each message in the log by configuring a pattern template.
-The default is: `PatternTemplate1 = "%[LoggerName]s (%[Pid]d,%[RoutineId]d) %[DateTime]s.%[Msecs]d %[LevelName]s %[Caller]s %[Message]v"`
+The default is: `PatternTemplateWithDefault = "%[LoggerName]s (%[Pid]d,%[RoutineId]d) %[DateTime]s %[LevelName]s %[ShortCaller]s %[Message]v"`
 You can adjust the order of the fields and add or remove them yourself, for example: `"<<%[Pid]d,%[RoutineId]d>> %[LoggerName]s %[DateTime]s %[LevelName]s %[Message]v %[Caller]s"`
 You can configure it to your liking.
 The following are all the options that can be configured:
@@ -225,7 +295,7 @@ You can use `%[CallerPath]s`, `%[CallerFile]s`, `%[CallerName]s`, `%[CallerLine]
 %[CallerPath]s %[CallerName]s:%[CallerLine]d
 %[CallerFile]s:%[CallerLine]d
 ```
-注意：
+Notes:
 - `%[Caller]s` and `%[ShortCaller]s` are fixedly arranged and cannot be customized. And these two fields are mutually exclusive, only one of them can be selected.
 - `%[CallerPath]s`, `%[CallerFile]s`, `%[CallerName]s`, `%[CallerLine]d` can be customized. However, the two fields `%[Caller Path]s` and `%[Caller File]s` are mutually exclusive, and only one of them can be selected.
 - `%[Caller]s`, `%[ShortCaller]s` and `%[CallerPath]s`, `%[CallerFile]s`, `%[CallerName]s`, `%[CallerLine]d` are also mutually exclusive Yes, you can only choose one of the methods.
@@ -233,5 +303,3 @@ You can use `%[CallerPath]s`, `%[CallerFile]s`, `%[CallerName]s`, `%[CallerLine]
 **Note:**
 In systems with microservices, a similar `TraceID` is typically present to assist in stringing together the entire call chain.
 **glog** makes the logger automatically get the `TraceID` by configuring the hook function of `TraceIDFunc`.
-
-

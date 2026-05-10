@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"sync/atomic"
 
 	"github.com/ml444/glog/level"
 	"github.com/ml444/glog/message"
@@ -15,15 +16,16 @@ type IFormatter interface {
 }
 
 var (
-	loggerName    string
-	localIP       string
-	localHostname string
-	pidStr        string
-	pid           int
+	defaultLoggerName atomic.Value
+	localIP           string
+	localHostname     string
+	pidStr            string
+	pid               int
 )
 
 func init() {
 	var err error
+	defaultLoggerName.Store("")
 	pid = os.Getpid()
 	pidStr = strconv.FormatInt(int64(pid), 10)
 	localHostname, err = os.Hostname()
@@ -37,10 +39,12 @@ func init() {
 }
 
 func SetLoggerName(name string) {
-	loggerName = name
+	defaultLoggerName.Store(name)
 }
 
 type BaseFormatterConfig struct {
+	// logger name rendered in formatted records.
+	LoggerName string
 	// time layout string, for example: "2006-01-02 15:04:05.000"
 	TimeLayout string
 	// enable color rendering
@@ -59,6 +63,10 @@ type BaseFormatterConfig struct {
 
 func (c BaseFormatterConfig) WithTimeLayout(layout string) BaseFormatterConfig {
 	c.TimeLayout = layout
+	return c
+}
+func (c BaseFormatterConfig) WithLoggerName(name string) BaseFormatterConfig {
+	c.LoggerName = name
 	return c
 }
 func (c BaseFormatterConfig) WithShortLevel() BaseFormatterConfig {
@@ -88,20 +96,28 @@ func (c BaseFormatterConfig) WithEnableTimestamp() BaseFormatterConfig {
 
 type BaseFormatter struct {
 	*TimeFormatter
-	cfg BaseFormatterConfig
+	cfg        BaseFormatterConfig
+	loggerName string
 }
 
 func NewBaseFormatter(cfg BaseFormatterConfig) *BaseFormatter {
+	loggerName := cfg.LoggerName
+	if loggerName == "" {
+		if v, ok := defaultLoggerName.Load().(string); ok {
+			loggerName = v
+		}
+	}
 	return &BaseFormatter{
 		TimeFormatter: NewTimeFormatter(cfg.TimeLayout),
 		cfg:           cfg,
+		loggerName:    loggerName,
 	}
 }
 
 func (b *BaseFormatter) ConvertToMessage(e *message.Entry) *message.Record {
 	m := &message.Record{
 		RoutineID: e.RoutineID,
-		Service:   loggerName,
+		Module:   b.loggerName,
 		Level:     e.Level.String(),
 		Datetime:  b.FormatDateTime(e.Time),
 		TraceID:   e.TraceID,
@@ -115,7 +131,7 @@ func (b *BaseFormatter) ConvertToMessage(e *message.Entry) *message.Record {
 	}
 	if b.cfg.EnableColor {
 		m.Level = Color(e.Level) + m.Level + colorEnd
-		m.Service = purple + loggerName + colorEnd
+		m.Module = purple + b.loggerName + colorEnd
 	}
 	if b.cfg.EnableIP {
 		m.IP = localIP

@@ -56,6 +56,13 @@ func GetLogger() ILogger {
 	return logger
 }
 
+func Stats() LoggerStats {
+	if l, ok := logger.(interface{ Stats() LoggerStats }); ok {
+		return l.Stats()
+	}
+	return LoggerStats{}
+}
+
 func Debug(args ...interface{}) { logger.Debug(args...) }
 func Info(args ...interface{})  { logger.Info(args...) }
 func Warn(args ...interface{})  { logger.Warn(args...) }

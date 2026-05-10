@@ -25,6 +25,8 @@ type FileHandler struct {
 	rotator   IRotator
 
 	bulkWriteSize int
+	backpressure  BackpressureConfig
+	stats         BackpressureCounter
 	bufChan       chan []byte
 	doneChan      chan bool
 	done          bool
@@ -46,6 +48,7 @@ func NewFileHandler(cfg *FileHandlerConfig, fm formatter.IFormatter, ft filter.I
 		filter:        ft,
 		rotator:       rotator,
 		bulkWriteSize: cfg.BulkWriteSize,
+		backpressure:  cfg.Backpressure.Normalize(BackpressureStrategyDrop),
 		ErrorCallback: cfg.ErrCallback,
 		bufChan:       make(chan []byte, cfg.BufferSize),
 		doneChan:      make(chan bool, 100),
@@ -148,13 +151,54 @@ func (h *FileHandler) Emit(entry *message.Entry) error {
 		return err
 	}
 
-	// h.bufChan <- msgByte
-	select {
-	case h.bufChan <- msgByte:
+	return h.enqueue(msgByte)
+}
+
+func (h *FileHandler) enqueue(msg []byte) error {
+	switch h.backpressure.Strategy {
+	case BackpressureStrategyBlock:
+		h.bufChan <- msg
+		h.stats.AddEnqueued()
+		return nil
+	case BackpressureStrategyTimeout:
+		timer := time.NewTimer(h.backpressure.Timeout)
+		defer timer.Stop()
+		select {
+		case h.bufChan <- msg:
+			h.stats.AddEnqueued()
+			return nil
+		case <-timer.C:
+			h.stats.AddTimedOut()
+			return ErrBackpressureTimeout
+		}
+	case BackpressureStrategySample:
+		select {
+		case h.bufChan <- msg:
+			h.stats.AddEnqueued()
+			return nil
+		default:
+			if h.stats.AllowSample(h.backpressure.SampleRate) {
+				h.bufChan <- msg
+				h.stats.AddEnqueued()
+				return nil
+			}
+			h.stats.AddDropped()
+			return ErrBackpressureDropped
+		}
 	default:
-		return errors.New("buffer is full")
+		select {
+		case h.bufChan <- msg:
+			h.stats.AddEnqueued()
+			return nil
+		default:
+			h.stats.AddDropped()
+			return ErrBackpressureDropped
+		}
 	}
-	return nil
+}
+
+func (h *FileHandler) BackpressureStats() BackpressureStats {
+	return h.stats.Snapshot()
 }
 
 func (h *FileHandler) Close() error {
