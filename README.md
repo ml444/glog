@@ -6,6 +6,10 @@
 
 [中文](README_zh.md)
 
+## Development
+
+Run `go vet` / `go test -race` from the repo root and from the `tests/` module; see [CONTRIBUTING.md](CONTRIBUTING.md) for the full checklist and refactor notes.
+
 Glog is a library of asynchronous loggers, with configurable cache sizes to
 accommodate different high concurrency requirements. It also controls the
 different behaviors and logging methods of the logger through various

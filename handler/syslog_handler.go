@@ -6,7 +6,6 @@ import (
 	"log/syslog"
 
 	"github.com/ml444/glog/filter"
-
 	"github.com/ml444/glog/formatter"
 	"github.com/ml444/glog/level"
 	"github.com/ml444/glog/message"
@@ -57,10 +56,8 @@ func (h *SyslogHandler) Init() error {
 }
 
 func (h *SyslogHandler) Emit(e *message.Entry) error {
-	if h.filter != nil {
-		if ok := h.filter.Filter(e); !ok {
-			return filter.ErrFilterOut
-		}
+	if err := applyFilter(h.filter, e); err != nil {
+		return err
 	}
 	msgByte, err := h.format(e)
 	if err != nil {
@@ -88,5 +85,8 @@ func (h *SyslogHandler) Emit(e *message.Entry) error {
 }
 
 func (h *SyslogHandler) Close() error {
-	return nil
+	if h.Writer == nil {
+		return nil
+	}
+	return h.Writer.Close()
 }

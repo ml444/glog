@@ -16,8 +16,10 @@
 
 .idea/
 
-go.sum
-*_test.go
+.cursor/
+.githooks/
+
+# *_test.go
 
 filter/bloom.go
 

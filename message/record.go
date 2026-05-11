@@ -12,6 +12,6 @@ type Record struct {
 	CallerName string `json:"caller_name,omitempty"`
 	IP         string `json:"ip,omitempty"`
 	HostName   string `json:"host,omitempty"`
-	TraceID    string `json:"trade_id,omitempty"`
+	TraceID    string `json:"trace_id,omitempty"`
 	Message    string `json:"msg,omitempty"`
 }

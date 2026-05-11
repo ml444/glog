@@ -3,6 +3,10 @@
 [![license](http://img.shields.io/badge/license-MIT-red.svg?style=flat)](https://raw.githubusercontent.com/ml444/glog/master/LICENSE)
 [![Coverage](https://img.shields.io/badge/version-v0.1.0-blue)](https://github.com/ml444/glog/releases/tag/v0.1.0)
 
+## 开发与测试
+
+在仓库根目录与 `tests/` 子模块分别执行 `go vet`、`go test -race`；详见 [CONTRIBUTING.md](CONTRIBUTING.md)。
+
 Glog 是一个异步的日志记录器的库，通过配置缓存大小来适应不同的高并发需求。
 同时通过各种细粒度的配置来控制日志记录器的不同行为和记录方式，包括高负载场景下的背压策略和计数指标。
 
@@ -130,6 +134,7 @@ func InitLogger() error {
 更多详细配置可以查看代码：`option.go`、`config.go`、`default.go` 和 `handler/cfg.go`。
 
 ### 背压策略和计数指标
+
 `glog` 有两层异步队列：
 
 1. 每个 worker 前面的队列，通过 `WorkerConfig.SetBackpressure` 配置。
@@ -199,7 +204,9 @@ for _, worker := range stats.Workers {
 - `Sampled`：在背压期间由采样策略保留下来的日志数。
 
 ### 日志等级
+
 为了兼容标准库的logging等级，加入了print、fatal、panic三个等级:
+
 ```go
 package log
 
@@ -216,13 +223,16 @@ const (
 ```
 
 ## 多Worker处理特性
+
 在生产环境有时候我们需要存储一些特殊的日志，比如：
+
 1. 保留错误日志，使其存留的时间更长一些。以方便我们追溯一些bug。
 2. 某些高等级的日志需要通过系统的告警组件通知出去的时候，开发人员不必额外去开发这些特殊的日志记录组件。
 3. 一些特殊日志需要特殊操作的时候，比如操作日志存入数据库。
 4. 等等。
 
 通过启用多个Worker，并结合过滤器（filter）功能，筛选所需数据，进行特殊操作，使得风格和管理统一，对开发人员友好。
+
 ```go
 package main
 
@@ -278,13 +288,17 @@ func InitLogger() error {
 %[RoutineId]d       协程ID
 %[Message]s         记录的消息
 ```
+
 如果你不想使用`%[Caller]s`或者`%[ShortCaller]s`这个固定排列的调用者信息，
 你可以使用`CallerPath`、`CallerFile`、`CallerName`、`CallerLine`来自定义他们的顺序排列。
+
 ```shell
 %[CallerPath]s %[CallerName]s:%[CallerLine]d
 %[CallerFile]s:%[CallerLine]d
 ```
+
 注意：
+
 - `%[Caller]s`和`%[ShortCaller]s`是固定排列的，不可自定义。且这两个字段是互斥的，只能选择其中一个。
 - `%[CallerPath]s`、`%[CallerFile]s`、`%[CallerName]s`、`%[CallerLine]d`是可以自定义排列的。但`%[CallerPath]s`、`%[CallerFile]s`这两个字段是互斥的，只能选择其中一个。
 - `%[Caller]s`、`%[ShortCaller]s` 和 `%[CallerPath]s`、`%[CallerFile]s`、`%[CallerName]s`、`%[CallerLine]d` 也是互斥的，只能选择其中一种方式。

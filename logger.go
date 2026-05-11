@@ -110,7 +110,7 @@ func (l *Logger) init() (err error) {
 
 func (l *Logger) send(lvl Level, msg string) {
 	if atomic.LoadUint32(&l.isStop) == 1 {
-		println("it is stoped, can't send: ", msg)
+		println("it is stopped, can't send: ", msg)
 		return
 	}
 	routineID := goid.Get()

@@ -63,10 +63,8 @@ func (h *StreamHandler) emit(msg []byte) error {
 }
 
 func (h *StreamHandler) Emit(record *message.Entry) error {
-	if h.filter != nil {
-		if ok := h.filter.Filter(record); !ok {
-			return filter.ErrFilterOut
-		}
+	if err := applyFilter(h.filter, record); err != nil {
+		return err
 	}
 
 	msgByte, err := h.format(record)

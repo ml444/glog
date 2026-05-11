@@ -32,8 +32,7 @@ func TestSignalTermFlushesFileUnderLoad(t *testing.T) {
 		return
 	}
 
-	// dir := t.TempDir()
-	dir := "/tmp/glog_test_log_dir"
+	dir := t.TempDir()
 	t.Logf("dir: %s", dir)
 	cmd := exec.Command(os.Args[0], "-test.run=TestSignalTermFlushesFileUnderLoad", "-test.count=1", "-test.timeout=90s")
 	cmd.Env = append(os.Environ(),

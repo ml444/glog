@@ -4,8 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"sync/atomic"
-	"time"
 
+	"github.com/ml444/glog/filter"
 	"github.com/ml444/glog/handler"
 	"github.com/ml444/glog/message"
 )
@@ -57,7 +57,7 @@ func (w *Worker) emit(entry *message.Entry) {
 		return
 	}
 	err := w.handler.Emit(entry)
-	if err != nil {
+	if err != nil && !errors.Is(err, filter.ErrFilterOut) {
 		w.onError(entry, err)
 	}
 }
@@ -148,14 +148,14 @@ func (w *Worker) Send(entry *message.Entry) {
 			w.onError(entry, handler.ErrBackpressureDropped)
 		}
 	case BackpressureStrategyTimeout:
-		timer := time.NewTimer(w.backpressure.Timeout)
-		defer timer.Stop()
+		t := handler.AcquireTimeoutTimer(w.backpressure.Timeout)
+		defer handler.ReleaseTimeoutTimer(t)
 		select {
 		case w.entryChan <- entry:
 			w.stats.AddEnqueued()
 		case <-w.stopChan:
 			w.stats.AddDropped()
-		case <-timer.C:
+		case <-t.C:
 			w.stats.AddTimedOut()
 			w.onError(entry, handler.ErrBackpressureTimeout)
 		}

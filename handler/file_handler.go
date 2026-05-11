@@ -4,7 +4,7 @@ import (
 	"errors"
 	"io"
 	"os"
-	"time"
+	"sync"
 
 	"github.com/ml444/glog/filter"
 	"github.com/ml444/glog/formatter"
@@ -27,9 +27,10 @@ type FileHandler struct {
 	bulkWriteSize int
 	backpressure  BackpressureConfig
 	stats         BackpressureCounter
-	bufChan       chan []byte
-	doneChan      chan bool
-	done          bool
+	bufChan    chan []byte
+	doneChan   chan struct{}
+	workerDone chan struct{}
+	closeOnce  sync.Once
 
 	ErrorCallback func(buf interface{}, err error)
 }
@@ -50,14 +51,16 @@ func NewFileHandler(cfg *FileHandlerConfig, fm formatter.IFormatter, ft filter.I
 		bulkWriteSize: cfg.BulkWriteSize,
 		backpressure:  cfg.Backpressure.Normalize(BackpressureStrategyDrop),
 		ErrorCallback: cfg.ErrCallback,
-		bufChan:       make(chan []byte, cfg.BufferSize),
-		doneChan:      make(chan bool, 100),
+		bufChan:    make(chan []byte, cfg.BufferSize),
+		doneChan:   make(chan struct{}),
+		workerDone: make(chan struct{}),
 	}
 	go h.flushWorker()
 	return h, nil
 }
 
 func (h *FileHandler) flushWorker() {
+	defer close(h.workerDone)
 	for {
 		select {
 		case b := <-h.bufChan:
@@ -76,7 +79,6 @@ func (h *FileHandler) flushWorker() {
 						h.ErrorCallback(buf, err)
 					}
 				default:
-					h.done = true
 					return
 				}
 			}
@@ -104,18 +106,19 @@ func (h *FileHandler) realWrite(buf []byte) error {
 	}
 	n, err := file.Write(buf)
 	if err != nil {
-		if errors.Is(err, io.ErrShortWrite) {
-			for n < len(buf) {
-				var x int
-				x, err = file.Write(buf[n:])
-				if err != nil {
-					return err
-				}
-				n += x
-			}
+		if !errors.Is(err, io.ErrShortWrite) {
+			return err
 		}
-		return err
+		for n < len(buf) {
+			var x int
+			x, err = file.Write(buf[n:])
+			if err != nil {
+				return err
+			}
+			n += x
+		}
 	}
+	h.rotator.RecordBytesWritten(n)
 	return nil
 }
 
@@ -136,10 +139,8 @@ func (h *FileHandler) BulkFill(buf []byte) []byte {
 }
 
 func (h *FileHandler) Emit(entry *message.Entry) error {
-	if h.filter != nil {
-		if ok := h.filter.Filter(entry); !ok {
-			return filter.ErrFilterOut
-		}
+	if err := applyFilter(h.filter, entry); err != nil {
+		return err
 	}
 
 	if h.formatter == nil {
@@ -161,13 +162,13 @@ func (h *FileHandler) enqueue(msg []byte) error {
 		h.stats.AddEnqueued()
 		return nil
 	case BackpressureStrategyTimeout:
-		timer := time.NewTimer(h.backpressure.Timeout)
-		defer timer.Stop()
+		t := AcquireTimeoutTimer(h.backpressure.Timeout)
+		defer ReleaseTimeoutTimer(t)
 		select {
 		case h.bufChan <- msg:
 			h.stats.AddEnqueued()
 			return nil
-		case <-timer.C:
+		case <-t.C:
 			h.stats.AddTimedOut()
 			return ErrBackpressureTimeout
 		}
@@ -202,12 +203,11 @@ func (h *FileHandler) BackpressureStats() BackpressureStats {
 }
 
 func (h *FileHandler) Close() error {
-	h.doneChan <- true
-	for i := 0; i < 100; i++ {
-		if h.done {
-			break
-		}
-		<-time.After(1 * time.Millisecond)
-	}
-	return h.rotator.Close()
+	var err error
+	h.closeOnce.Do(func() {
+		close(h.doneChan)
+		<-h.workerDone
+		err = h.rotator.Close()
+	})
+	return err
 }

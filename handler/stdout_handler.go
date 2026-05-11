@@ -2,7 +2,6 @@ package handler
 
 import (
 	"os"
-	"time"
 
 	"github.com/ml444/glog/filter"
 	"github.com/ml444/glog/formatter"
@@ -29,10 +28,8 @@ func (h *StdoutHandler) Format(entry *message.Entry) ([]byte, error) {
 }
 
 func (h *StdoutHandler) Emit(entry *message.Entry) error {
-	if h.filter != nil {
-		if ok := h.filter.Filter(entry); !ok {
-			return filter.ErrFilterOut
-		}
+	if err := applyFilter(h.filter, entry); err != nil {
+		return err
 	}
 
 	msgByte, err := h.Format(entry)
@@ -48,6 +45,5 @@ func (h *StdoutHandler) Emit(entry *message.Entry) error {
 }
 
 func (h *StdoutHandler) Close() error {
-	<-time.After(time.Millisecond * 10)
 	return nil
 }

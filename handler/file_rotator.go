@@ -3,7 +3,6 @@ package handler
 import (
 	"errors"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -18,6 +17,8 @@ type IRotator interface {
 	NeedRollover(msg []byte) (*os.File, bool, error)
 	DoRollover() (*os.File, error)
 	Close() error
+	// RecordBytesWritten updates size accounting after a successful Write (avoids per-write Seek).
+	RecordBytesWritten(n int)
 }
 
 func NewRotator(cfg *FileHandlerConfig) (IRotator, error) {
@@ -38,6 +39,7 @@ type SizeRotator struct {
 	cfg      *FileHandlerConfig
 	filePath string
 	maxSize  int64
+	curSize  int64
 }
 
 func NewSizeRotator(cfg *FileHandlerConfig) (*SizeRotator, error) {
@@ -71,23 +73,29 @@ func (r *SizeRotator) getFilepath() string {
 }
 
 func (r *SizeRotator) NeedRollover(msg []byte) (*os.File, bool, error) {
-	var err error
-	file := r.file
-	if file == nil {
-		file, err = open(r.filePath)
+	if r.file == nil {
+		file, err := open(r.filePath)
 		if err != nil {
 			return nil, false, err
 		}
 		r.file = file
-	}
-	if r.maxSize > 0 {
-		var size int64
-		size, err = file.Seek(0, io.SeekEnd)
-		if err == nil && size+int64(len(msg)) >= r.maxSize {
-			return file, true, nil
+		st, err := file.Stat()
+		if err != nil {
+			return nil, false, err
 		}
+		r.curSize = st.Size()
 	}
-	return file, false, err
+	if r.maxSize > 0 && r.curSize+int64(len(msg)) >= r.maxSize {
+		return r.file, true, nil
+	}
+	return r.file, false, nil
+}
+
+func (r *SizeRotator) RecordBytesWritten(n int) {
+	if n <= 0 {
+		return
+	}
+	r.curSize += int64(n)
 }
 
 func (r *SizeRotator) DoRollover() (*os.File, error) {
@@ -132,6 +140,11 @@ func (r *SizeRotator) DoRollover() (*os.File, error) {
 		return nil, err
 	}
 	r.file = f
+	st, err := f.Stat()
+	if err != nil {
+		return nil, err
+	}
+	r.curSize = st.Size()
 	return f, nil
 }
 
@@ -203,6 +216,8 @@ func (r *TimeRotator) NeedRollover(_ []byte) (*os.File, bool, error) {
 	return r.file, false, nil
 }
 
+func (r *TimeRotator) RecordBytesWritten(_ int) {}
+
 func (r *TimeRotator) DoRollover() (*os.File, error) {
 	if r.file != nil {
 		_ = r.file.Sync()
@@ -225,21 +240,10 @@ func (r *TimeRotator) DoRollover() (*os.File, error) {
 	}
 	if backupCount := r.cfg.BackupCount; backupCount > 0 {
 		dir, filename := filepath.Split(r.filePath)
-		var delFileList []string
-		_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
-			if info.IsDir() {
-				return nil
-			}
-			filePreFix := filename + "."
-			pLen := len(filePreFix)
-			if fn := info.Name(); fn[:pLen] == filePreFix {
-				fileSuffix := fn[pLen:]
-				if r.reCompile.MatchString(fileSuffix) {
-					delFileList = append(delFileList, filepath.Join(path, fn))
-				}
-			}
-			return nil
-		})
+		delFileList, err := collectRotatedBackupPaths(dir, filename, r.reCompile)
+		if err != nil {
+			return nil, err
+		}
 		if delLen := len(delFileList); delLen > backupCount {
 			sort.Strings(delFileList)
 			delFileList = delFileList[:delLen-backupCount]
@@ -259,6 +263,7 @@ func (r *TimeRotator) DoRollover() (*os.File, error) {
 	if err != nil {
 		return nil, err
 	}
+	r.file = f
 	return f, nil
 }
 
@@ -275,6 +280,7 @@ type TimeAndSizeRotator struct {
 	filename           string
 	filePath           string
 	maxSize            int64
+	curSize            int64
 	backupCount        int
 	interval           int64
 	suffixFmt          string
@@ -335,24 +341,29 @@ func (r *TimeAndSizeRotator) NeedRollover(msg []byte) (*os.File, bool, error) {
 		if modTime.Unix()+r.interval < r.rolloverAt {
 			return r.file, true, nil
 		}
+		st, err := r.file.Stat()
+		if err != nil {
+			return r.file, false, err
+		}
+		r.curSize = st.Size()
 	}
 	t := time.Now().Unix()
 	if t >= r.rolloverAt {
 		return r.file, true, nil
 	}
 	if r.maxSize > 0 {
-		size, err := r.file.Seek(0, io.SeekEnd)
-		if err != nil {
-			return r.file, false, err
-		} else {
-			if size+int64(len(msg)) >= r.maxSize {
-				return r.file, false, errors.New("maximum file size limit")
-			} else {
-				return r.file, false, nil
-			}
+		if r.curSize+int64(len(msg)) >= r.maxSize {
+			return r.file, false, errors.New("maximum file size limit")
 		}
 	}
 	return r.file, false, nil
+}
+
+func (r *TimeAndSizeRotator) RecordBytesWritten(n int) {
+	if n <= 0 {
+		return
+	}
+	r.curSize += int64(n)
 }
 
 func (r *TimeAndSizeRotator) DoRollover() (*os.File, error) {
@@ -392,21 +403,8 @@ func (r *TimeAndSizeRotator) DoRollover() (*os.File, error) {
 	if r.backupCount > 0 {
 		dir := r.cfg.FileDir
 		filename := r.filename
-		filePreFix := filename + "."
-		pLen := len(filePreFix)
 		var delFileList []string
-		err = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
-			if info == nil || info.IsDir() {
-				return nil
-			}
-			if fn := info.Name(); strings.HasPrefix(fn, filePreFix) {
-				fileSuffix := fn[pLen:]
-				if r.reCompile.MatchString(fileSuffix) {
-					delFileList = append(delFileList, path)
-				}
-			}
-			return nil
-		})
+		delFileList, err = collectRotatedBackupPaths(dir, filename, r.reCompile)
 		if err != nil {
 			return nil, err
 		}
@@ -429,6 +427,11 @@ func (r *TimeAndSizeRotator) DoRollover() (*os.File, error) {
 	if err != nil {
 		return nil, err
 	}
+	st, err := r.file.Stat()
+	if err != nil {
+		return nil, err
+	}
+	r.curSize = st.Size()
 	return r.file, nil
 }
 
@@ -488,6 +491,31 @@ func getFileModTime(file *os.File) (time.Time, error) {
 		return time.Time{}, err
 	}
 	return info.ModTime(), nil
+}
+
+// collectRotatedBackupPaths lists files in dir whose names start with namePrefix+"." and suffix matches re.
+func collectRotatedBackupPaths(dir, namePrefix string, re *regexp.Regexp) ([]string, error) {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return nil, err
+	}
+	fp := namePrefix + "."
+	plen := len(fp)
+	var out []string
+	for _, ent := range entries {
+		if ent.IsDir() {
+			continue
+		}
+		fn := ent.Name()
+		if len(fn) <= plen || fn[:plen] != fp {
+			continue
+		}
+		suf := fn[plen:]
+		if re.MatchString(suf) {
+			out = append(out, filepath.Join(dir, fn))
+		}
+	}
+	return out, nil
 }
 
 func getRolloverSecond(interval int64) (rolloverAt int64) {
