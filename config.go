@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	DefaultDateTimeFormat       = "01-02T15:04:05.000000" // microsecond
+	DefaultDateTimeFormat       = formatter.DefaultTimeLayout // microsecond
 	defaultMaxFileSize    int64 = 1024 * 1024 * 1024
 )
 
@@ -19,7 +19,7 @@ type Config struct {
 	LoggerName string
 
 	// Set the global log level. Logs below this level will not be processed.
-	// If not set, the default is `Info Level`.
+	// NewDefaultConfig uses PrintLevel. A zero value Config is normalized to InfoLevel.
 	LoggerLevel Level
 
 	// What level of logging is set here will trigger an exception to be thrown.
@@ -35,6 +35,11 @@ type Config struct {
 
 	CallerSkipCount int
 
+	// EnableRoutineID controls whether each entry records its goroutine ID.
+	// It defaults to true for backward compatibility. Disable it on hot paths
+	// when the ID is not part of the desired output.
+	EnableRoutineID *bool
+
 	// enable color rendering. Only enabled by default in the text formatter.
 	EnableColorRender *bool
 
@@ -45,8 +50,8 @@ type Config struct {
 	// and each Worker can set different cache sizes, log levels, formatting
 	// methods, filters, and output methods.
 	// Output currently defines multiple modes, such as console, file, network, etc.
-	// If not set, the default is a Worker, the cache size is 1000, the log level
-	// is `Info Level`, and the output mode is the console.
+	// If not set, the default is one Worker with a cache size of 1024, following
+	// the logger level and writing to the console.
 	// Of course, if there is no suitable output method, you can customize the Handler.
 	WorkerConfigList []*WorkerConfig
 
@@ -126,41 +131,49 @@ func (w *WorkerConfig) SetLevel(lvl Level) *WorkerConfig {
 }
 
 func (w *WorkerConfig) SetFileHandlerConfig(c *FileHandlerConfig) *WorkerConfig {
-	w.HandlerCfg.File = c
+	w.HandlerCfg = HandlerConfig{File: c}
+	w.CustomHandler = nil
 	return w
 }
 
 func (w *WorkerConfig) SetStreamHandlerConfig(c *StreamHandlerConfig) *WorkerConfig {
-	w.HandlerCfg.Stream = c
+	w.HandlerCfg = HandlerConfig{Stream: c}
+	w.CustomHandler = nil
 	return w
 }
 
 func (w *WorkerConfig) SetSyslogHandlerConfig(c *SyslogHandlerConfig) *WorkerConfig {
-	w.HandlerCfg.Syslog = c
+	w.HandlerCfg = HandlerConfig{Syslog: c}
+	w.CustomHandler = nil
 	return w
 }
 
 func (w *WorkerConfig) SetTextFormatterConfig(c *TextFormatterConfig) *WorkerConfig {
-	w.FormatterCfg.Text = c
+	w.FormatterCfg = FormatterConfig{Text: c}
+	w.CustomFormatter = nil
 	return w
 }
 
 func (w *WorkerConfig) SetJSONFormatterConfig(c *JSONFormatterConfig) *WorkerConfig {
-	w.FormatterCfg.JSON = c
+	w.FormatterCfg = FormatterConfig{JSON: c}
+	w.CustomFormatter = nil
 	return w
 }
 
 func (w *WorkerConfig) SetXMLFormatterConfig(c *XMLFormatterConfig) *WorkerConfig {
-	w.FormatterCfg.XML = c
+	w.FormatterCfg = FormatterConfig{XML: c}
+	w.CustomFormatter = nil
 	return w
 }
 
 func (w *WorkerConfig) SetHandler(h handler.IHandler) *WorkerConfig {
+	w.HandlerCfg = HandlerConfig{}
 	w.CustomHandler = h
 	return w
 }
 
 func (w *WorkerConfig) SetFormatter(f formatter.IFormatter) *WorkerConfig {
+	w.FormatterCfg = FormatterConfig{}
 	w.CustomFormatter = f
 	return w
 }
@@ -194,7 +207,7 @@ func (c *Config) Check() {
 			NewDefaultStdoutWorkerConfig(),
 		}
 	}
-	var validWorkerConfigs  []*WorkerConfig
+	var validWorkerConfigs []*WorkerConfig
 	for _, workerCfg := range c.WorkerConfigList {
 		if workerCfg == nil {
 			continue
@@ -204,36 +217,27 @@ func (c *Config) Check() {
 		if workerCfg.CacheSize == 0 {
 			workerCfg.CacheSize = 1024
 		}
-		if workerCfg.Level == 0 {
-			workerCfg.Level = PrintLevel
-		}
 		workerCfg.Backpressure = workerCfg.Backpressure.Normalize(handler.BackpressureStrategyBlock)
 		if workerCfg.CustomHandler != nil {
 			continue
 		}
+		if workerCfg.CustomFormatter == nil && workerCfg.FormatterCfg.Text == nil && workerCfg.FormatterCfg.JSON == nil && workerCfg.FormatterCfg.XML == nil {
+			workerCfg.FormatterCfg.Text = &TextFormatterConfig{PatternStyle: PatternTemplateWithDefault}
+		}
 		if cc := workerCfg.FormatterCfg.Text; cc != nil {
-			if cc.LoggerName == "" {
-				cc.LoggerName = c.LoggerName
-			}
 			if cc.TimeLayout == "" {
 				cc.TimeLayout = c.TimeLayout
 			}
-			if c.EnableColorRender != nil && cc.EnableColor == false {
+			if c.EnableColorRender != nil {
 				cc.EnableColor = *c.EnableColorRender
 			}
 		}
 		if cc := workerCfg.FormatterCfg.JSON; cc != nil {
-			if cc.LoggerName == "" {
-				cc.LoggerName = c.LoggerName
-			}
 			if cc.TimeLayout == "" {
 				cc.TimeLayout = c.TimeLayout
 			}
 		}
 		if cc := workerCfg.FormatterCfg.XML; cc != nil {
-			if cc.LoggerName == "" {
-				cc.LoggerName = c.LoggerName
-			}
 			if cc.TimeLayout == "" {
 				cc.TimeLayout = c.TimeLayout
 			}

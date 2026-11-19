@@ -36,6 +36,8 @@ func NewBackpressureConfig(strategy BackpressureStrategy) BackpressureConfig {
 var (
 	ErrBackpressureDropped = handler.ErrBackpressureDropped
 	ErrBackpressureTimeout = handler.ErrBackpressureTimeout
+	ErrHandlerClosed       = handler.ErrHandlerClosed
+	ErrFileSizeLimit       = handler.ErrFileSizeLimit
 )
 
 const (
@@ -62,10 +64,20 @@ func NewDefaultConfig() *Config {
 	}
 }
 
+// New builds an independent logger using the same options accepted by InitLog.
+func New(opts ...OptionFunc) (*Logger, error) {
+	cfg := NewDefaultConfig()
+	for _, optionFunc := range opts {
+		if optionFunc != nil {
+			optionFunc(cfg)
+		}
+	}
+	return NewLogger(cfg)
+}
+
 func NewDefaultStdoutWorkerConfig() *WorkerConfig {
 	return &WorkerConfig{
 		CacheSize:  1024,
-		Level:      PrintLevel,
 		HandlerCfg: HandlerConfig{},
 		FormatterCfg: FormatterConfig{
 			Text: NewDefaultTextFormatterConfig(),
@@ -76,7 +88,6 @@ func NewDefaultStdoutWorkerConfig() *WorkerConfig {
 func NewDefaultTextFileWorkerConfig(dir string) *WorkerConfig {
 	return &WorkerConfig{
 		CacheSize: 1024 * 64,
-		Level:     PrintLevel,
 		HandlerCfg: HandlerConfig{
 			File: NewDefaultFileHandlerConfig(dir),
 		},
@@ -90,7 +101,6 @@ func NewDefaultTextFileWorkerConfig(dir string) *WorkerConfig {
 func NewDefaultJsonFileWorkerConfig(dir string) *WorkerConfig {
 	return &WorkerConfig{
 		CacheSize: 1024 * 64,
-		Level:     PrintLevel,
 		HandlerCfg: HandlerConfig{
 			File: NewDefaultFileHandlerConfig(dir),
 		},
@@ -120,7 +130,6 @@ func NewDefaultFileHandlerConfig(dir string) *FileHandlerConfig {
 func NewDefaultTextFormatterConfig() *TextFormatterConfig {
 	return &TextFormatterConfig{
 		BaseFormatterConfig: BaseFormatterConfig{
-			TimeLayout:  DefaultDateTimeFormat,
 			EnableColor: true,
 			ShortLevel:  true,
 		},
@@ -131,17 +140,11 @@ func NewDefaultTextFormatterConfig() *TextFormatterConfig {
 }
 
 func NewDefaultJSONFormatterConfig() *JSONFormatterConfig {
-	return &JSONFormatterConfig{
-		BaseFormatterConfig: BaseFormatterConfig{
-			TimeLayout: DefaultDateTimeFormat,
-		},
-		PrettyPrint: false,
-	}
+	return &JSONFormatterConfig{}
 }
 
 func NewDefaultBaseFormatterConfig() BaseFormatterConfig {
 	return BaseFormatterConfig{
-		TimeLayout:      DefaultDateTimeFormat,
 		EnableColor:     false,
 		ShortLevel:      false,
 		EnablePid:       false,
@@ -153,7 +156,10 @@ func NewDefaultBaseFormatterConfig() BaseFormatterConfig {
 
 func newHandler(workerCfg *WorkerConfig) (handler.IHandler, error) {
 	if workerCfg.CustomHandler != nil {
-		return workerCfg.CustomHandler, nil
+		return &retainedHandler{
+			IHandler: workerCfg.CustomHandler,
+			lease:    retainCloser(workerCfg.CustomHandler),
+		}, nil
 	}
 	fm := workerCfg.CustomFormatter
 	if fm == nil {
@@ -164,7 +170,18 @@ func newHandler(workerCfg *WorkerConfig) (handler.IHandler, error) {
 		return handler.NewFileHandler(handlerCfg.File, fm, workerCfg.CustomFilter)
 	}
 	if handlerCfg.Stream != nil {
-		return handler.NewStreamHandler(handlerCfg.Stream, fm, workerCfg.CustomFilter)
+		streamCfg := *handlerCfg.Stream
+		if streamCfg.Streamer == nil {
+			return handler.NewStreamHandler(&streamCfg, fm, workerCfg.CustomFilter)
+		}
+		lease := retainCloser(streamCfg.Streamer)
+		streamCfg.Streamer = &retainedStream{IStreamer: streamCfg.Streamer, lease: lease}
+		streamHandler, err := handler.NewStreamHandler(&streamCfg, fm, workerCfg.CustomFilter)
+		if err != nil {
+			_ = lease.Close()
+			return nil, err
+		}
+		return streamHandler, nil
 	}
 	if handlerCfg.Syslog != nil {
 		return handler.NewSyslogHandler(handlerCfg.Syslog, fm, workerCfg.CustomFilter)

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"runtime"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -56,13 +57,16 @@ type ILogger interface {
 
 type Logger struct {
 	Name               string
+	nameMu             sync.RWMutex
 	Level              Level
+	levelMu            sync.RWMutex
 	ThrowOnLevel       Level
 	ExitFunc           func(code int) // Called after Stop on ThrowOnLevel; defaults to os.Exit (Stop is already invoked in after()).
 	TraceIDFunc        func(entry *message.Entry) string
 	engine             IEngine
 	callerSkip         int
 	enableRecordCaller bool
+	enableRoutineID    bool
 	isStop             uint32
 }
 
@@ -77,10 +81,18 @@ func NewLogger(cfg *Config) (*Logger, error) {
 	if cfg == nil {
 		cfg = NewDefaultConfig()
 	}
+	cfg = cfg.clone()
 	cfg.Check()
+	if err := cfg.validate(); err != nil {
+		return nil, err
+	}
 	eng, err := NewChannelEngine(cfg)
 	if err != nil {
 		return nil, err
+	}
+	enableRoutineID := true
+	if cfg.EnableRoutineID != nil {
+		enableRoutineID = *cfg.EnableRoutineID
 	}
 	l := Logger{
 		Name:               cfg.LoggerName,
@@ -91,6 +103,7 @@ func NewLogger(cfg *Config) (*Logger, error) {
 		engine:             eng,
 		callerSkip:         cfg.CallerSkipCount,
 		enableRecordCaller: cfg.EnableRecordCaller,
+		enableRoutineID:    enableRoutineID,
 	}
 	err = l.init()
 	if err != nil {
@@ -113,12 +126,15 @@ func (l *Logger) send(lvl Level, msg string) {
 		println("it is stopped, can't send: ", msg)
 		return
 	}
-	routineID := goid.Get()
 	entry := &message.Entry{
-		RoutineID: routineID,
-		Message:   msg,
-		Time:      time.Now(),
-		Level:     lvl,
+		Message:       msg,
+		LoggerName:    l.GetLoggerName(),
+		LoggerNameSet: true,
+		Time:          time.Now(),
+		Level:         lvl,
+	}
+	if l.enableRoutineID {
+		entry.RoutineID = goid.Get()
 	}
 	if l.TraceIDFunc != nil {
 		entry.TraceID = l.TraceIDFunc(entry)
@@ -131,23 +147,23 @@ func (l *Logger) send(lvl Level, msg string) {
 }
 
 func (l *Logger) log(lvl Level, args ...interface{}) {
-	if lvl < l.Level {
+	if lvl < l.GetLevel() {
 		return
 	}
-	msg := fmt.Sprint(args...)
+	msg := sprint(args)
 	l.send(lvl, msg)
 	l.after(lvl)
 }
 
 func (l *Logger) logf(lvl Level, template string, args ...interface{}) {
-	if lvl < l.Level {
+	if lvl < l.GetLevel() {
 		return
 	}
 
 	msg := template
 	if msg == "" {
-		msg = fmt.Sprint(args...)
-	} else {
+		msg = sprint(args)
+	} else if len(args) > 0 || strings.Contains(template, "%") {
 		msg = fmt.Sprintf(template, args...)
 	}
 	if lvl >= PanicLevel {
@@ -158,6 +174,15 @@ func (l *Logger) logf(lvl Level, template string, args ...interface{}) {
 	}
 	l.send(lvl, msg)
 	l.after(lvl)
+}
+
+func sprint(args []interface{}) string {
+	if len(args) == 1 {
+		if messageText, ok := args[0].(string); ok {
+			return messageText
+		}
+	}
+	return fmt.Sprint(args...)
 }
 
 func (l *Logger) recordStack(callDepth int, buf *strings.Builder) {
@@ -189,19 +214,44 @@ func (l *Logger) after(lvl Level) {
 }
 
 func (l *Logger) GetLoggerName() string {
-	return l.Name
+	l.nameMu.RLock()
+	name := l.Name
+	l.nameMu.RUnlock()
+	return name
 }
 
 func (l *Logger) SetLoggerName(name string) {
+	l.nameMu.Lock()
 	l.Name = name
+	l.nameMu.Unlock()
 }
 
 func (l *Logger) GetLevel() Level {
-	return l.Level
+	l.levelMu.RLock()
+	level := l.Level
+	l.levelMu.RUnlock()
+	return level
 }
 
 func (l *Logger) SetLevel(lvl Level) {
+	l.levelMu.Lock()
 	l.Level = lvl
+	l.levelMu.Unlock()
+}
+
+// Enabled reports whether a level would be accepted by this logger.
+func (l *Logger) Enabled(lvl Level) bool {
+	return atomic.LoadUint32(&l.isStop) == 0 && lvl >= l.GetLevel()
+}
+
+// Log writes a message at the provided level.
+func (l *Logger) Log(lvl Level, args ...interface{}) {
+	l.log(lvl, args...)
+}
+
+// Logf writes a formatted message at the provided level.
+func (l *Logger) Logf(lvl Level, template string, args ...interface{}) {
+	l.logf(lvl, template, args...)
 }
 
 func (l *Logger) Debug(args ...interface{}) { l.log(DebugLevel, args...) }
@@ -246,9 +296,7 @@ func (l *Logger) Fatalf(template string, args ...interface{}) {
 }
 
 func (l *Logger) Stop() error {
-	defer func() {
-		atomic.StoreUint32(&l.isStop, 1)
-	}()
+	atomic.StoreUint32(&l.isStop, 1)
 	return l.engine.Stop()
 }
 

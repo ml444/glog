@@ -19,10 +19,15 @@ func SetThrowOnLevel(lvl Level) OptionFunc {
 
 // SetRecordCaller Enable recording of caller information
 func SetRecordCaller(skip int) OptionFunc {
-	return func(cfg *Config) { 
-		cfg.EnableRecordCaller = true 
+	return func(cfg *Config) {
+		cfg.EnableRecordCaller = true
 		cfg.CallerSkipCount = skip
 	}
+}
+
+// SetRecordRoutineID enables or disables goroutine ID collection.
+func SetRecordRoutineID(enable bool) OptionFunc {
+	return func(cfg *Config) { cfg.EnableRoutineID = &enable }
 }
 
 // SetColorRender enable color rendering. Only enabled by default in the text formatter.

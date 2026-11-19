@@ -10,8 +10,18 @@ import (
 )
 
 func BenchmarkLoggerInfoDiscard(b *testing.B) {
+	benchmarkLoggerInfoDiscard(b, true)
+}
+
+func BenchmarkLoggerInfoDiscardNoRoutineID(b *testing.B) {
+	benchmarkLoggerInfoDiscard(b, false)
+}
+
+func benchmarkLoggerInfoDiscard(b *testing.B, enableRoutineID bool) {
 	cfg := &Config{
-		LoggerLevel: DebugLevel,
+		LoggerLevel:     DebugLevel,
+		EnableRoutineID: &enableRoutineID,
+		OnError:         func(interface{}, error) {},
 		WorkerConfigList: []*WorkerConfig{
 			NewWorkerConfig(PrintLevel, 4096).
 				SetBackpressure(handler.BackpressureConfig{
@@ -49,6 +59,25 @@ func BenchmarkTextFormatterFormat(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_, err := fm.Format(entry)
+		if err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkTextFormatterAppend(b *testing.B) {
+	fm := formatter.NewTextFormatter(*NewDefaultTextFormatterConfig())
+	entry := &message.Entry{
+		Message: "hello world",
+		Level:   InfoLevel,
+		Time:    time.Now(),
+	}
+	buf := make([]byte, 0, 1024)
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		var err error
+		buf, err = fm.Append(buf[:0], entry)
 		if err != nil {
 			b.Fatal(err)
 		}
