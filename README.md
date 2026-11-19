@@ -140,6 +140,82 @@ This is done to protect the server's disk.
 
 More detailed configuration can be seen in the code: `option.go`, `config.go`, `default.go`, and `handler/cfg.go`.
 
+### Durable file writes
+
+Use `WriteDurable` for a record that must be persisted before the call succeeds:
+
+```go
+import "context"
+
+// Configure at least one built-in file worker with InitLog or New first.
+if err := log.WriteDurable(context.Background(), log.ErrorLevel, "service failed"); err != nil {
+    // Persistence was not confirmed. Some targets may already contain the record.
+    return err
+}
+// A subsequent os.Exit does not need to flush this confirmed record.
+```
+
+Both `log.WriteDurable(ctx, level, args...)` and
+`logger.WriteDurable(ctx, level, args...)` wait for **every built-in file worker
+whose level threshold matches** to write the entire record and strongly sync it.
+Each record is synced separately. These calls only dispatch to file workers;
+stdout, syslog and custom handlers are not included. Even `FatalLevel` is a pure
+write and does not invoke `ThrowOnLevel` or `ExitFunc`. Existing `Info`, `Error`
+and other logging methods retain their asynchronous behavior and backpressure
+policies. Durable requests wait for queue space instead of dropping or sampling.
+
+- A filtered level or file filter returns `ErrLogFiltered`; no matching file
+  returns `ErrNoDurableTarget`. An empty formatted record returns
+  `ErrEmptyLogRecord`. None of these conditions silently succeeds.
+- `DurableWriteError.Failures` identifies failed or unconfirmed workers by index,
+  path and stage. `errors.Is` and `errors.As` inspect the underlying errors across
+  all targets. Successful targets are not rolled back; retries may duplicate logs.
+- Cancellation before admission returns the context error without writing.
+  Cancellation after admission may return `ErrDurabilityUnknown` (also matching
+  the context cause). Accepted records continue through the queues. A context
+  cannot interrupt an operating system write or sync already in progress.
+- `Stop` drains accepted requests and waits for their completion. `InitLog`
+  waits for in-flight package-level calls before retiring the previous logger.
+  Write/sync failures stop that file writer from appending further records;
+  inspect the file and reinitialize after addressing the failure.
+
+Overlapping file handlers during logger replacement coordinate I/O within the
+process. A replacement waits for an active rotation, and an older handler
+refreshes its file descriptor and size when another handler has written/rotated.
+
+Linux uses file and directory `fsync`; macOS explicitly requires `F_FULLFSYNC`
+without falling back to weaker flushing. New directories, files and rotation
+renames are persisted in order. Normal logs that later trigger rotation follow
+the same protocol. File creation and rotation therefore perform additional
+synchronization even for ordinary logging on Linux and macOS. Other operating
+systems retain ordinary logging and return `ErrDurableUnsupported` for durable
+requests. The existing `ILogger`, `IEngine` and `IHandler` interfaces are unchanged;
+custom loggers may implement the optional `IDurableLogger` extension.
+
+Size rotation uses a hidden `.NAME.glog-rotation` progress file beside the log,
+with atomic updates through a `.tmp` companion. It contains rotation steps,
+not log records. An interrupted rotation resumes when its size rotator is
+reopened; do not remove these files or change the rotation configuration before
+recovery. They are removed/reused automatically as rotation completes.
+
+The guarantee covers confirmed records within the configured retention window
+on local filesystems with a single manager per file, assuming the storage stack
+honors synchronization. Concurrent goroutines are supported. Network filesystems,
+multiple processes sharing a file, media failure and permanent host loss are
+outside this guarantee. `WriteDurable` does not make earlier asynchronous calls
+durable, provide a transaction across files, or repair unconfirmed partial tails.
+
+Process-crash tests report acknowledged IDs to a parent process and then use
+`os.Exit`, an unhandled panic or `SIGKILL`, including across file rotations. To
+qualify **power-loss** behavior, use an isolated Linux or macOS VM/test device
+with persistent local storage: record successful IDs on an external controller,
+force a hard reset without guest shutdown, remount/reboot and verify every ID in
+the active file and backups. Exercise creation of nested directories, each
+rotation boundary, and subsequent ordinary writes. Keep enough backups to avoid
+intentional expiry. Run this for the actual deployment filesystem/storage stack;
+the process-crash suite and injected sync failures do not replace that acceptance
+test. No real power-loss validation is claimed by the automated unit tests.
+
 ### Backpressure strategy and counters
 `glog` has two asynchronous queues:
 

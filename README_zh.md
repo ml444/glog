@@ -131,6 +131,64 @@ func InitLogger() error {
 
 更多详细配置可以查看代码：`option.go`、`config.go`、`default.go` 和 `handler/cfg.go`。
 
+### 同步持久化写入
+
+需要在返回成功前确认日志已落盘时，使用 `WriteDurable`：
+
+```go
+import "context"
+
+// 先通过 InitLog 或 New 配置至少一个内置文件 worker。
+if err := log.WriteDurable(context.Background(), log.ErrorLevel, "服务发生致命错误"); err != nil {
+    // 持久化未获确认，部分文件可能已经写入；由业务决定如何处理。
+    return err
+}
+// 此后即使直接 os.Exit，已确认的这条记录也无需依赖退出刷盘。
+```
+
+包级 `log.WriteDurable(ctx, level, args...)` 和实例级
+`logger.WriteDurable(ctx, level, args...)` 都会等待**所有达到级别阈值的内置文件
+worker** 完整写入并强同步成功。每条可靠记录独立同步，只向文件 worker 投递；
+控制台、Syslog 和自定义 Handler 不包含在此次投递中。即使使用 `FatalLevel`，
+也不会触发 `ThrowOnLevel` 或 `ExitFunc`。原有 `Info`、`Error` 等接口继续使用异步
+写入及原有背压策略；可靠请求等待队列空间，不会被 Drop 或 Sample 静默丢弃。
+
+- 被日志级别或文件过滤器排除时返回 `ErrLogFiltered`，没有匹配文件时返回
+  `ErrNoDurableTarget`，格式化结果为空时返回 `ErrEmptyLogRecord`。
+- `DurableWriteError.Failures` 按 worker 下标、文件路径和失败阶段列出失败或未确认
+  的目标。使用 `errors.Is/As` 检查全部目标中的底层错误。成功的文件不会回滚，
+  重试可能产生重复日志。
+- 入队前取消返回 context 错误，不写入。入队后取消等待可能返回
+  `ErrDurabilityUnknown`，并保留 context 原因；已接受的请求继续完成。context
+  无法中断已经进入操作系统的 Write/Sync，也不会撤销已写入的内容。
+- `Stop` 排空已接受请求并等待完成；`InitLog` 等待在途包级调用后再退休旧 Logger。
+  文件写入或同步失败后，该文件写入线程停止继续追加；修复故障、检查文件后重新初始化。
+
+Logger 替换期间，同一进程中使用同一路径的文件 Handler 会协调 I/O。新实例等待在途
+轮转结束，旧实例在其他 Handler 写入或轮转后刷新文件句柄及大小，避免向旧文件追加。
+
+Linux 使用文件及目录 `fsync`；macOS 显式要求 `F_FULLFSYNC`，不退回较弱的同步。
+新建目录、文件以及轮转重命名按顺序持久化，后续普通日志触发的轮转也遵循同一协议。
+因此，Linux/macOS 的普通文件日志在创建及轮转时也会增加同步操作。其他系统保留普通
+日志功能，可靠接口返回 `ErrDurableUnsupported`。现有 `ILogger`、`IEngine`、
+`IHandler` 接口不变，自定义 Logger 可实现可选扩展 `IDurableLogger`。
+
+大小轮转会在日志旁使用隐藏的 `.文件名.glog-rotation` 进度文件，通过 `.tmp` 临时
+文件原子更新。它只记录轮转步骤，不包含日志内容；重启大小轮转器时自动续做未完成的
+轮转。恢复前请保留这些文件及原轮转配置，完成后由程序自动删除或复用。
+
+保障适用于本地文件系统、单一管理者写入文件、存储设备正确兑现同步操作的情况，并受
+配置的正常日志保留期限约束。支持并发 goroutine；多进程共享文件、网络文件系统、
+介质损坏和永久主机丢失不在保障范围。该接口不会将先前普通异步调用升级为可靠日志，
+不提供多个文件间的事务，也不自动修复未确认记录留下的不完整尾部。
+
+进程崩溃测试会向父进程报告成功 ID，然后直接 `os.Exit`、触发未恢复 panic 或
+`SIGKILL`，并核对活动文件及轮转备份。**断电验收**需要隔离虚拟机或测试设备：
+由外部控制器保存成功 ID，在不执行客户机关闭流程的情况下强制重置，重启/重新挂载后
+核对全部已确认 ID。分别覆盖多层目录首次创建、各个轮转边界及后续普通写入，并保留足够
+的备份避免正常过期删除。应在实际部署的文件系统及存储栈上验收；进程强杀和同步故障注入
+不能替代该验证，自动化单元测试不宣称已经完成真实断电验证。
+
 ### 背压策略和计数指标
 
 `glog` 有两层异步队列：

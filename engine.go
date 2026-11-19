@@ -1,6 +1,7 @@
 package log
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"sync"
@@ -20,7 +21,8 @@ type IEngine interface {
 
 type Worker struct {
 	handler        handler.IHandler
-	entryChan      chan *message.Entry
+	fileHandler    *handler.FileHandler
+	entryChan      chan engineRequest
 	onError        func(v interface{}, err error)
 	errorCallbacks errorcallback.Dispatcher
 	levelThreshold Level
@@ -32,12 +34,17 @@ type Worker struct {
 	producersDone <-chan struct{}
 }
 
+type engineRequest struct {
+	entry *message.Entry
+	done  chan error
+}
+
 func (w *Worker) Run() {
 	defer close(w.runDone)
 	for {
 		select {
-		case entry := <-w.entryChan:
-			w.emit(entry)
+		case request := <-w.entryChan:
+			w.process(request)
 		case <-w.stopChan:
 			<-w.producersDone
 			w.drain()
@@ -49,12 +56,22 @@ func (w *Worker) Run() {
 func (w *Worker) drain() {
 	for {
 		select {
-		case entry := <-w.entryChan:
-			w.emit(entry)
+		case request := <-w.entryChan:
+			w.process(request)
 		default:
 			return
 		}
 	}
+}
+
+func (w *Worker) process(request engineRequest) {
+	if request.done != nil {
+		// Admission into the engine commits us to finishing this request, even
+		// when its caller has stopped waiting. Stop drains these requests too.
+		request.done <- w.fileHandler.EmitDurable(context.Background(), request.entry)
+		return
+	}
+	w.emit(request.entry)
 }
 
 func (w *Worker) emit(entry *message.Entry) {
@@ -108,9 +125,14 @@ func NewChannelEngine(cfg *Config) (*ChannelEngine, error) {
 			}
 			return nil, err
 		}
+		var fileHandler *handler.FileHandler
+		if workerCfg.CustomHandler == nil {
+			fileHandler, _ = h.(*handler.FileHandler)
+		}
 		workers = append(workers, &Worker{
 			handler:        h,
-			entryChan:      make(chan *message.Entry, workerCfg.CacheSize),
+			fileHandler:    fileHandler,
+			entryChan:      make(chan engineRequest, workerCfg.CacheSize),
 			onError:        cfg.OnError,
 			levelThreshold: workerCfg.Level,
 			backpressure:   workerCfg.Backpressure,
@@ -165,6 +187,7 @@ func (w *Worker) Send(entry *message.Entry) {
 }
 
 func (w *Worker) send(entry *message.Entry) error {
+	request := engineRequest{entry: entry}
 	switch w.backpressure.Strategy {
 	case BackpressureStrategyDrop:
 		select {
@@ -174,7 +197,7 @@ func (w *Worker) send(entry *message.Entry) error {
 		default:
 		}
 		select {
-		case w.entryChan <- entry:
+		case w.entryChan <- request:
 			w.stats.AddEnqueued()
 		case <-w.stopChan:
 			w.stats.AddDropped()
@@ -184,7 +207,7 @@ func (w *Worker) send(entry *message.Entry) error {
 		}
 	case BackpressureStrategyTimeout:
 		select {
-		case w.entryChan <- entry:
+		case w.entryChan <- request:
 			w.stats.AddEnqueued()
 			return nil
 		case <-w.stopChan:
@@ -195,7 +218,7 @@ func (w *Worker) send(entry *message.Entry) error {
 		t := handler.AcquireTimeoutTimer(w.backpressure.Timeout)
 		defer handler.ReleaseTimeoutTimer(t)
 		select {
-		case w.entryChan <- entry:
+		case w.entryChan <- request:
 			w.stats.AddEnqueued()
 		case <-w.stopChan:
 			w.stats.AddDropped()
@@ -211,14 +234,14 @@ func (w *Worker) send(entry *message.Entry) error {
 		default:
 		}
 		select {
-		case w.entryChan <- entry:
+		case w.entryChan <- request:
 			w.stats.AddEnqueued()
 		case <-w.stopChan:
 			w.stats.AddDropped()
 		default:
 			if w.stats.ShouldSample(w.backpressure.SampleRate) {
 				select {
-				case w.entryChan <- entry:
+				case w.entryChan <- request:
 					w.stats.AddEnqueued()
 					w.stats.AddSampled()
 				case <-w.stopChan:
@@ -234,7 +257,7 @@ func (w *Worker) send(entry *message.Entry) error {
 		}
 	default:
 		select {
-		case w.entryChan <- entry:
+		case w.entryChan <- request:
 			w.stats.AddEnqueued()
 		case <-w.stopChan:
 			w.stats.AddDropped()

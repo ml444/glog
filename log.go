@@ -1,6 +1,7 @@
 package log
 
 import (
+	"context"
 	"os"
 	"sync"
 	"sync/atomic"
@@ -231,6 +232,21 @@ func Log(lvl Level, args ...interface{}) {
 		return
 	}
 	logWithInterface(l, lvl, args...)
+}
+
+// WriteDurable persists a record to all matching built-in file workers of the
+// current logger. Unsupported custom loggers return ErrDurableUnsupported.
+func WriteDurable(ctx context.Context, lvl Level, args ...interface{}) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	holder := acquireLogger()
+	defer holder.release()
+	l, ok := holder.logger.(IDurableLogger)
+	if !ok {
+		return ErrDurableUnsupported
+	}
+	return l.WriteDurable(ctx, lvl, args...)
 }
 
 func Logf(lvl Level, template string, args ...interface{}) {

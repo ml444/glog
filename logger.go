@@ -1,6 +1,7 @@
 package log
 
 import (
+	"context"
 	"fmt"
 	"runtime"
 	"strings"
@@ -126,6 +127,10 @@ func (l *Logger) send(lvl Level, msg string) {
 		println("it is stopped, can't send: ", msg)
 		return
 	}
+	l.engine.Send(l.newEntry(lvl, msg))
+}
+
+func (l *Logger) newEntry(lvl Level, msg string) *message.Entry {
 	entry := &message.Entry{
 		Message:       msg,
 		LoggerName:    l.GetLoggerName(),
@@ -143,7 +148,35 @@ func (l *Logger) send(lvl Level, msg string) {
 	if l.enableRecordCaller {
 		entry.Caller = GetCallerFrame(l.callerSkip)
 	}
-	l.engine.Send(entry)
+	return entry
+}
+
+// WriteDurable waits until every matching built-in file worker has persisted
+// the record. It never triggers ThrowOnLevel. A non-nil error does not imply
+// that no bytes were written; canceled accepted writes may still complete.
+func (l *Logger) WriteDurable(ctx context.Context, lvl Level, args ...interface{}) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if atomic.LoadUint32(&l.isStop) != 0 {
+		return ErrLoggerStopped
+	}
+	if runtime.GOOS != "linux" && runtime.GOOS != "darwin" {
+		return ErrDurableUnsupported
+	}
+	if lvl < DebugLevel || lvl > FatalLevel {
+		return ErrInvalidLevel
+	}
+	if lvl < l.GetLevel() {
+		return ErrLogFiltered
+	}
+	engine, ok := l.engine.(interface {
+		SendDurable(context.Context, *message.Entry) error
+	})
+	if !ok {
+		return ErrDurableUnsupported
+	}
+	return engine.SendDurable(ctx, l.newEntry(lvl, sprint(args)))
 }
 
 func (l *Logger) log(lvl Level, args ...interface{}) {

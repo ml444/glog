@@ -37,6 +37,7 @@ func NewRotator(cfg *FileHandlerConfig) (IRotator, error) {
 }
 
 type SizeRotator struct {
+	fs       *rotationFS
 	file     *os.File
 	cfg      *FileHandlerConfig
 	filePath string
@@ -49,6 +50,7 @@ func NewSizeRotator(cfg *FileHandlerConfig) (*SizeRotator, error) {
 		return nil, errors.New("size rotator config is nil")
 	}
 	r := SizeRotator{
+		fs:      newRotationFS(),
 		cfg:     cfg,
 		maxSize: cfg.MaxFileSize,
 	}
@@ -60,11 +62,14 @@ func NewSizeRotator(cfg *FileHandlerConfig) (*SizeRotator, error) {
 }
 
 func (r *SizeRotator) init() error {
-	err := mkdir(r.cfg.FileDir)
+	err := r.fs.mkdir(r.cfg.FileDir)
 	if err != nil {
 		return err
 	}
 	r.filePath = r.getFilepath()
+	if durablePlatformSupported {
+		return r.recoverRotation()
+	}
 	return nil
 }
 
@@ -78,11 +83,14 @@ func (r *SizeRotator) getFilepath() string {
 }
 
 func (r *SizeRotator) NeedRollover(msg []byte) (*os.File, bool, error) {
+	if r.fs.err != nil {
+		return nil, false, r.fs.err
+	}
 	if r.maxSize > 0 && int64(len(msg)) > r.maxSize {
 		return r.file, false, ErrFileSizeLimit
 	}
 	if r.file == nil {
-		file, err := open(r.filePath)
+		file, err := r.fs.open(r.filePath)
 		if err != nil {
 			return nil, false, err
 		}
@@ -107,44 +115,39 @@ func (r *SizeRotator) RecordBytesWritten(n int) {
 }
 
 func (r *SizeRotator) DoRollover() (*os.File, error) {
+	if r.fs.err != nil {
+		return nil, r.fs.err
+	}
 	if r.file != nil {
-		if err := closeFile(&r.file); err != nil {
+		if err := r.fs.closeFile(&r.file); err != nil {
 			return nil, err
 		}
 	}
 	if r.cfg.BackupCount > 0 {
-		for i := r.cfg.BackupCount; i > 0; i-- {
+		if durablePlatformSupported {
+			intent := sizeRotationIntent{Version: 1, Next: r.cfg.BackupCount, BackupCount: r.cfg.BackupCount}
+			if err := r.saveIntent(intent); err != nil {
+				return nil, err
+			}
+			return r.finishRotation(intent)
+		}
+		for i := r.cfg.BackupCount; i > 1; i-- {
 			sfn := fmt.Sprintf("%s.%d", r.filePath, i-1)
 			dfn := fmt.Sprintf("%s.%d", r.filePath, i)
 			if IsFileExist(sfn) {
-				if IsFileExist(dfn) {
-					err := os.Remove(dfn)
-					if err != nil {
-						return nil, err
-					}
-				}
-				err := os.Rename(sfn, dfn)
-				if err != nil {
+				if err := r.fs.rename(sfn, dfn); err != nil {
 					return nil, err
 				}
 			}
 		}
-		dfn := fmt.Sprintf("%s.1", r.filePath)
-		if IsFileExist(dfn) {
-			err := os.Remove(dfn)
-			if err != nil {
-				return nil, err
-			}
-		}
 		if IsFileExist(r.filePath) {
-			err := os.Rename(r.filePath, dfn)
-			if err != nil {
+			if err := r.fs.rename(r.filePath, r.filePath+".1"); err != nil {
 				return nil, err
 			}
 		}
 	}
 
-	f, err := open(r.filePath)
+	f, err := r.fs.open(r.filePath)
 	if err != nil {
 		return nil, err
 	}
@@ -158,10 +161,11 @@ func (r *SizeRotator) DoRollover() (*os.File, error) {
 }
 
 func (r *SizeRotator) Close() error {
-	return closeFile(&r.file)
+	return r.fs.closeFile(&r.file)
 }
 
 type TimeRotator struct {
+	fs         *rotationFS
 	cfg        *FileHandlerConfig
 	file       *os.File
 	filePath   string
@@ -171,7 +175,7 @@ type TimeRotator struct {
 }
 
 func NewTimeRotator(cfg *FileHandlerConfig) (*TimeRotator, error) {
-	r := &TimeRotator{cfg: cfg}
+	r := &TimeRotator{cfg: cfg, fs: newRotationFS()}
 	err := r.init()
 	if err != nil {
 		return nil, err
@@ -193,7 +197,7 @@ func (r *TimeRotator) init() error {
 	if err != nil {
 		return err
 	}
-	if err := mkdir(r.cfg.FileDir); err != nil {
+	if err := r.fs.mkdir(r.cfg.FileDir); err != nil {
 		return err
 	}
 
@@ -211,9 +215,12 @@ func (r *TimeRotator) getFilepath() string {
 }
 
 func (r *TimeRotator) NeedRollover(_ []byte) (*os.File, bool, error) {
+	if r.fs.err != nil {
+		return nil, false, r.fs.err
+	}
 	if r.file == nil {
 		var err error
-		r.file, err = open(r.filePath)
+		r.file, err = r.fs.open(r.filePath)
 		if err != nil {
 			return r.file, false, err
 		}
@@ -228,8 +235,11 @@ func (r *TimeRotator) NeedRollover(_ []byte) (*os.File, bool, error) {
 func (r *TimeRotator) RecordBytesWritten(_ int) {}
 
 func (r *TimeRotator) DoRollover() (*os.File, error) {
+	if r.fs.err != nil {
+		return nil, r.fs.err
+	}
 	if r.file != nil {
-		if err := closeFile(&r.file); err != nil {
+		if err := r.fs.closeFile(&r.file); err != nil {
 			return nil, err
 		}
 	}
@@ -241,7 +251,7 @@ func (r *TimeRotator) DoRollover() (*os.File, error) {
 		if err != nil {
 			return nil, err
 		}
-		err = os.Rename(r.filePath, backupPath)
+		err = r.fs.rename(r.filePath, backupPath)
 		if err != nil {
 			return nil, err
 		}
@@ -256,7 +266,7 @@ func (r *TimeRotator) DoRollover() (*os.File, error) {
 			sort.Strings(delFileList)
 			delFileList = delFileList[:delLen-backupCount]
 			for _, filePath := range delFileList {
-				if err := os.Remove(filePath); err != nil {
+				if err := r.fs.remove(filePath); err != nil {
 					return nil, err
 				}
 			}
@@ -266,7 +276,7 @@ func (r *TimeRotator) DoRollover() (*os.File, error) {
 	// next rolloverAt
 	r.rolloverAt = curTime.Unix() + r.interval
 
-	f, err := open(r.filePath)
+	f, err := r.fs.open(r.filePath)
 	if err != nil {
 		return nil, err
 	}
@@ -275,10 +285,11 @@ func (r *TimeRotator) DoRollover() (*os.File, error) {
 }
 
 func (r *TimeRotator) Close() error {
-	return closeFile(&r.file)
+	return r.fs.closeFile(&r.file)
 }
 
 type TimeAndSizeRotator struct {
+	fs                 *rotationFS
 	cfg                *FileHandlerConfig
 	file               *os.File
 	filename           string
@@ -298,6 +309,7 @@ func NewTimeAndSizeRotator(cfg *FileHandlerConfig) (*TimeAndSizeRotator, error) 
 		return nil, errors.New("time and size rotator config is nil")
 	}
 	r := &TimeAndSizeRotator{
+		fs:          newRotationFS(),
 		cfg:         cfg,
 		filename:    cfg.FileName,
 		filePath:    cfg.FileDir,
@@ -328,7 +340,7 @@ func (r *TimeAndSizeRotator) init() error {
 	if err != nil {
 		return err
 	}
-	if err := mkdir(r.cfg.FileDir); err != nil {
+	if err := r.fs.mkdir(r.cfg.FileDir); err != nil {
 		return err
 	}
 
@@ -337,12 +349,15 @@ func (r *TimeAndSizeRotator) init() error {
 }
 
 func (r *TimeAndSizeRotator) NeedRollover(msg []byte) (*os.File, bool, error) {
+	if r.fs.err != nil {
+		return nil, false, r.fs.err
+	}
 	if r.maxSize > 0 && int64(len(msg)) > r.maxSize {
 		return r.file, false, ErrFileSizeLimit
 	}
 	if r.file == nil {
 		var err error
-		r.file, err = open(r.filePath)
+		r.file, err = r.fs.open(r.filePath)
 		if err != nil {
 			return r.file, false, err
 		}
@@ -379,10 +394,13 @@ func (r *TimeAndSizeRotator) RecordBytesWritten(n int) {
 }
 
 func (r *TimeAndSizeRotator) DoRollover() (*os.File, error) {
+	if r.fs.err != nil {
+		return nil, r.fs.err
+	}
 	var err error
 
 	if r.file != nil {
-		if err = closeFile(&r.file); err != nil {
+		if err = r.fs.closeFile(&r.file); err != nil {
 			return nil, err
 		}
 	}
@@ -399,7 +417,7 @@ func (r *TimeAndSizeRotator) DoRollover() (*os.File, error) {
 			if err != nil {
 				return nil, err
 			}
-			err = os.Rename(r.filePath, backupPath)
+			err = r.fs.rename(r.filePath, backupPath)
 			if err != nil {
 				return nil, err
 			}
@@ -420,7 +438,7 @@ func (r *TimeAndSizeRotator) DoRollover() (*os.File, error) {
 			sort.Strings(delFileList)
 			delFileList = delFileList[:delFileLen-r.backupCount]
 			for _, filePath := range delFileList {
-				err = os.Remove(filePath)
+				err = r.fs.remove(filePath)
 				if err != nil {
 					return nil, err
 				}
@@ -431,7 +449,7 @@ func (r *TimeAndSizeRotator) DoRollover() (*os.File, error) {
 	r.rolloverAt = time.Now().Unix() + r.interval
 
 	r.filePath = r.getNewFilepath()
-	r.file, err = open(r.filePath)
+	r.file, err = r.fs.open(r.filePath)
 	if err != nil {
 		return nil, err
 	}
@@ -457,7 +475,7 @@ func (r *TimeAndSizeRotator) getNewFilepath() string {
 }
 
 func (r *TimeAndSizeRotator) Close() error {
-	return closeFile(&r.file)
+	return r.fs.closeFile(&r.file)
 }
 
 func IsFileExist(name string) bool {
@@ -466,33 +484,6 @@ func IsFileExist(name string) bool {
 		panic(fmt.Sprintf("This path '%s' is not a file path.", name))
 	}
 	return err == nil || os.IsExist(err)
-}
-
-func open(filepath string) (*os.File, error) {
-	return os.OpenFile(filepath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o666)
-}
-
-func mkdir(dir string) error {
-	if dir == "" {
-		dir = "."
-	}
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return fmt.Errorf("make log directory %q: %w", dir, err)
-	}
-	return nil
-}
-
-func closeFile(file **os.File) error {
-	if *file == nil {
-		return nil
-	}
-	syncErr := (*file).Sync()
-	closeErr := (*file).Close()
-	*file = nil
-	if syncErr != nil {
-		return syncErr
-	}
-	return closeErr
 }
 
 func getFileModTime(file *os.File) (time.Time, error) {
