@@ -29,6 +29,7 @@ func TestStdoutLog(t *testing.T) {
 	if err != nil {
 		t.Fatal(err.Error())
 	}
+	t.Cleanup(Stop)
 	testLogs()
 	t.Log("===> PASS!!!")
 }
@@ -42,6 +43,7 @@ func TestStdoutLogWithEnableCaller(t *testing.T) {
 	if err != nil {
 		t.Fatal(err.Error())
 	}
+	t.Cleanup(Stop)
 	testLogs()
 	t.Log("===> PASS!!!")
 }
@@ -49,11 +51,12 @@ func TestStdoutLogWithEnableCaller(t *testing.T) {
 func TestTextFileLog(t *testing.T) {
 	err := InitLog(
 		SetLoggerName("glog"),
-		SetWorkerConfigs(NewDefaultTextFileWorkerConfig("logs")),
+		SetWorkerConfigs(NewDefaultTextFileWorkerConfig(t.TempDir())),
 	)
 	if err != nil {
 		t.Fatal(err.Error())
 	}
+	t.Cleanup(Stop)
 	testLogs()
 	t.Log("===> PASS!!!")
 }
@@ -61,21 +64,23 @@ func TestTextFileLog(t *testing.T) {
 func TestJsonFileLog(t *testing.T) {
 	err := InitLog(
 		SetLoggerName("glog"),
-		SetWorkerConfigs(NewDefaultJsonFileWorkerConfig("logs")),
+		SetWorkerConfigs(NewDefaultJsonFileWorkerConfig(t.TempDir())),
 	)
 	if err != nil {
 		t.Fatal(err.Error())
 	}
+	t.Cleanup(Stop)
 	testLogs()
 	t.Log("===> PASS!!!")
 }
 
 func TestCustomConfigLog(t *testing.T) {
+	dir := t.TempDir()
 	err := InitLog(
 		SetLoggerName("glog"),
 		SetWorkerConfigs(
 			NewWorkerConfig(InfoLevel, 1024).SetFileHandlerConfig(
-				NewDefaultFileHandlerConfig("logs").WithFileName("text_log"),
+				NewDefaultFileHandlerConfig(dir).WithFileName("text_log"),
 			).
 				SetJSONFormatterConfig(
 					NewDefaultJSONFormatterConfig().
@@ -92,6 +97,7 @@ func TestCustomConfigLog(t *testing.T) {
 	if err != nil {
 		t.Fatal(err.Error())
 	}
+	t.Cleanup(Stop)
 	testLogs()
 	t.Log("===> PASS!!!")
 }

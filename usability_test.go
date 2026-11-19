@@ -56,3 +56,32 @@ func TestNewEnabledAndRoutineIDOption(t *testing.T) {
 		t.Fatal("timed out waiting for entry")
 	}
 }
+
+func TestInitLogStopsReplacedLogger(t *testing.T) {
+	originalLogger := GetLogger()
+	originalConfig := Conf
+	oldHandler := &captureHandler{entries: make(chan *message.Entry, 1)}
+	oldLogger, err := New(
+		SetWorkerConfigs(NewWorkerConfig(PrintLevel, 1).SetHandler(oldHandler)),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	SetLogger(oldLogger)
+	Conf = NewDefaultConfig()
+	t.Cleanup(func() {
+		_ = GetLogger().Stop()
+		SetLogger(originalLogger)
+		Conf = originalConfig
+	})
+
+	newHandler := &captureHandler{entries: make(chan *message.Entry, 1)}
+	if err := InitLog(
+		SetWorkerConfigs(NewWorkerConfig(PrintLevel, 1).SetHandler(newHandler)),
+	); err != nil {
+		t.Fatal(err)
+	}
+	if got := atomic.LoadUint64(&oldHandler.closed); got != 1 {
+		t.Fatalf("old handler Close calls = %d, want 1", got)
+	}
+}
