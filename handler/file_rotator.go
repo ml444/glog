@@ -7,10 +7,9 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
-
-	"github.com/ml444/glog/util"
 )
 
 type IRotator interface {
@@ -22,6 +21,9 @@ type IRotator interface {
 }
 
 func NewRotator(cfg *FileHandlerConfig) (IRotator, error) {
+	if cfg == nil {
+		return nil, errors.New("file rotator config is nil")
+	}
 	switch cfg.RotatorType {
 	case FileRotatorTypeSize:
 		return NewSizeRotator(cfg)
@@ -43,6 +45,9 @@ type SizeRotator struct {
 }
 
 func NewSizeRotator(cfg *FileHandlerConfig) (*SizeRotator, error) {
+	if cfg == nil {
+		return nil, errors.New("size rotator config is nil")
+	}
 	r := SizeRotator{
 		cfg:     cfg,
 		maxSize: cfg.MaxFileSize,
@@ -73,6 +78,9 @@ func (r *SizeRotator) getFilepath() string {
 }
 
 func (r *SizeRotator) NeedRollover(msg []byte) (*os.File, bool, error) {
+	if r.maxSize > 0 && int64(len(msg)) > r.maxSize {
+		return r.file, false, ErrFileSizeLimit
+	}
 	if r.file == nil {
 		file, err := open(r.filePath)
 		if err != nil {
@@ -85,7 +93,7 @@ func (r *SizeRotator) NeedRollover(msg []byte) (*os.File, bool, error) {
 		}
 		r.curSize = st.Size()
 	}
-	if r.maxSize > 0 && r.curSize+int64(len(msg)) >= r.maxSize {
+	if r.maxSize > 0 && r.curSize+int64(len(msg)) > r.maxSize {
 		return r.file, true, nil
 	}
 	return r.file, false, nil
@@ -100,8 +108,9 @@ func (r *SizeRotator) RecordBytesWritten(n int) {
 
 func (r *SizeRotator) DoRollover() (*os.File, error) {
 	if r.file != nil {
-		_ = r.file.Sync()
-		_ = r.file.Close()
+		if err := closeFile(&r.file); err != nil {
+			return nil, err
+		}
 	}
 	if r.cfg.BackupCount > 0 {
 		for i := r.cfg.BackupCount; i > 0; i-- {
@@ -149,10 +158,7 @@ func (r *SizeRotator) DoRollover() (*os.File, error) {
 }
 
 func (r *SizeRotator) Close() error {
-	if r.file == nil {
-		return errors.New("file not open")
-	}
-	return r.file.Sync()
+	return closeFile(&r.file)
 }
 
 type TimeRotator struct {
@@ -177,15 +183,18 @@ func (r *TimeRotator) init() error {
 	if r.cfg == nil {
 		return errors.New("rotator config is nil")
 	}
+	r.interval = r.cfg.Interval
 	if r.interval <= 0 {
 		r.interval = 60 * 60 // default 1 hour
 	}
 	r.rolloverAt = getRolloverSecond(r.interval)
-	r.reCompile = regexp.MustCompile(r.cfg.ReMatch)
-
-	err := mkdir(r.cfg.FileDir)
+	var err error
+	r.reCompile, err = regexp.Compile(r.cfg.ReMatch)
 	if err != nil {
-		panic(err)
+		return err
+	}
+	if err := mkdir(r.cfg.FileDir); err != nil {
+		return err
 	}
 
 	r.filePath = r.getFilepath()
@@ -220,20 +229,19 @@ func (r *TimeRotator) RecordBytesWritten(_ int) {}
 
 func (r *TimeRotator) DoRollover() (*os.File, error) {
 	if r.file != nil {
-		_ = r.file.Sync()
-		_ = r.file.Close()
+		if err := closeFile(&r.file); err != nil {
+			return nil, err
+		}
 	}
 	curTime := time.Now()
 	suffixTime := curTime.Format(r.cfg.TimeSuffixFmt)
 	dfn := fmt.Sprintf("%s.%s", r.filePath, suffixTime)
-	if IsFileExist(dfn) {
-		err := os.Remove(dfn)
+	if IsFileExist(r.filePath) {
+		backupPath, err := availableBackupPath(dfn)
 		if err != nil {
 			return nil, err
 		}
-	}
-	if IsFileExist(r.filePath) {
-		err := os.Rename(r.filePath, dfn)
+		err = os.Rename(r.filePath, backupPath)
 		if err != nil {
 			return nil, err
 		}
@@ -247,11 +255,10 @@ func (r *TimeRotator) DoRollover() (*os.File, error) {
 		if delLen := len(delFileList); delLen > backupCount {
 			sort.Strings(delFileList)
 			delFileList = delFileList[:delLen-backupCount]
-		}
-		for _, filePath := range delFileList {
-			err := os.Remove(filePath)
-			if err != nil {
-				return nil, err
+			for _, filePath := range delFileList {
+				if err := os.Remove(filePath); err != nil {
+					return nil, err
+				}
 			}
 		}
 	}
@@ -268,10 +275,7 @@ func (r *TimeRotator) DoRollover() (*os.File, error) {
 }
 
 func (r *TimeRotator) Close() error {
-	if r.file == nil {
-		return errors.New("file not open")
-	}
-	return r.file.Sync()
+	return closeFile(&r.file)
 }
 
 type TimeAndSizeRotator struct {
@@ -290,6 +294,9 @@ type TimeAndSizeRotator struct {
 }
 
 func NewTimeAndSizeRotator(cfg *FileHandlerConfig) (*TimeAndSizeRotator, error) {
+	if cfg == nil {
+		return nil, errors.New("time and size rotator config is nil")
+	}
 	r := &TimeAndSizeRotator{
 		cfg:         cfg,
 		filename:    cfg.FileName,
@@ -316,11 +323,13 @@ func (r *TimeAndSizeRotator) init() error {
 		r.interval = 60 * 60 // default 1 hour
 	}
 	r.rolloverAt = getRolloverSecond(r.interval)
-	r.reCompile = regexp.MustCompile(r.cfg.ReMatch)
-
-	err := mkdir(r.cfg.FileDir)
+	var err error
+	r.reCompile, err = regexp.Compile(r.cfg.ReMatch)
 	if err != nil {
-		panic(err)
+		return err
+	}
+	if err := mkdir(r.cfg.FileDir); err != nil {
+		return err
 	}
 
 	r.filePath = r.getNewFilepath()
@@ -328,6 +337,9 @@ func (r *TimeAndSizeRotator) init() error {
 }
 
 func (r *TimeAndSizeRotator) NeedRollover(msg []byte) (*os.File, bool, error) {
+	if r.maxSize > 0 && int64(len(msg)) > r.maxSize {
+		return r.file, false, ErrFileSizeLimit
+	}
 	if r.file == nil {
 		var err error
 		r.file, err = open(r.filePath)
@@ -352,8 +364,8 @@ func (r *TimeAndSizeRotator) NeedRollover(msg []byte) (*os.File, bool, error) {
 		return r.file, true, nil
 	}
 	if r.maxSize > 0 {
-		if r.curSize+int64(len(msg)) >= r.maxSize {
-			return r.file, false, errors.New("maximum file size limit")
+		if r.curSize+int64(len(msg)) > r.maxSize {
+			return r.file, false, ErrFileSizeLimit
 		}
 	}
 	return r.file, false, nil
@@ -370,12 +382,7 @@ func (r *TimeAndSizeRotator) DoRollover() (*os.File, error) {
 	var err error
 
 	if r.file != nil {
-		err = r.file.Sync()
-		if err != nil {
-			return nil, err
-		}
-		err = r.file.Close()
-		if err != nil {
+		if err = closeFile(&r.file); err != nil {
 			return nil, err
 		}
 	}
@@ -387,14 +394,12 @@ func (r *TimeAndSizeRotator) DoRollover() (*os.File, error) {
 		parties = append(parties, r.cfg.FileSuffix, r.rolloverTimeSuffix)
 		dfn := filepath.Join(r.cfg.FileDir, strings.Join(parties, "."))
 
-		if IsFileExist(dfn) {
-			err = os.Remove(dfn)
+		if IsFileExist(r.filePath) {
+			backupPath, err := availableBackupPath(dfn)
 			if err != nil {
 				return nil, err
 			}
-		}
-		if IsFileExist(r.filePath) {
-			err = os.Rename(r.filePath, dfn)
+			err = os.Rename(r.filePath, backupPath)
 			if err != nil {
 				return nil, err
 			}
@@ -403,6 +408,9 @@ func (r *TimeAndSizeRotator) DoRollover() (*os.File, error) {
 	if r.backupCount > 0 {
 		dir := r.cfg.FileDir
 		filename := r.filename
+		if !r.cfg.ConcurrentlyWrite {
+			filename = filepath.Base(r.filePath)
+		}
 		var delFileList []string
 		delFileList, err = collectRotatedBackupPaths(dir, filename, r.reCompile)
 		if err != nil {
@@ -449,10 +457,7 @@ func (r *TimeAndSizeRotator) getNewFilepath() string {
 }
 
 func (r *TimeAndSizeRotator) Close() error {
-	if r.file == nil {
-		return errors.New("file not open")
-	}
-	return r.file.Sync()
+	return closeFile(&r.file)
 }
 
 func IsFileExist(name string) bool {
@@ -464,8 +469,6 @@ func IsFileExist(name string) bool {
 }
 
 func open(filepath string) (*os.File, error) {
-	old := util.UMask(0)
-	defer util.UMask(old)
 	return os.OpenFile(filepath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o666)
 }
 
@@ -473,16 +476,23 @@ func mkdir(dir string) error {
 	if dir == "" {
 		dir = "."
 	}
-	if !strings.HasPrefix(dir, ".") {
-		old := util.UMask(0)
-		defer util.UMask(old)
-		err := os.MkdirAll(dir, 0o777)
-		if err != nil {
-			println(fmt.Sprintf("make dir fail, dir %s, err %s\n", dir, err))
-			return err
-		}
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return fmt.Errorf("make log directory %q: %w", dir, err)
 	}
 	return nil
+}
+
+func closeFile(file **os.File) error {
+	if *file == nil {
+		return nil
+	}
+	syncErr := (*file).Sync()
+	closeErr := (*file).Close()
+	*file = nil
+	if syncErr != nil {
+		return syncErr
+	}
+	return closeErr
 }
 
 func getFileModTime(file *os.File) (time.Time, error) {
@@ -511,11 +521,55 @@ func collectRotatedBackupPaths(dir, namePrefix string, re *regexp.Regexp) ([]str
 			continue
 		}
 		suf := fn[plen:]
-		if re.MatchString(suf) {
+		matches := re.MatchString(suf)
+		if !matches {
+			if separator := strings.LastIndexByte(suf, '.'); separator >= 0 {
+				if _, err := strconv.ParseUint(suf[separator+1:], 10, 64); err == nil {
+					matches = re.MatchString(suf[:separator])
+				}
+			}
+		}
+		if matches {
 			out = append(out, filepath.Join(dir, fn))
 		}
 	}
 	return out, nil
+}
+
+func availableBackupPath(base string) (string, error) {
+	entries, err := os.ReadDir(filepath.Dir(base))
+	if err != nil {
+		return "", err
+	}
+	filename := filepath.Base(base)
+	var sequence uint64
+	found := false
+	for _, entry := range entries {
+		if entry.Name() == filename {
+			found = true
+		}
+		if strings.HasPrefix(entry.Name(), filename+".") {
+			if previous, err := strconv.ParseUint(strings.TrimPrefix(entry.Name(), filename+"."), 10, 64); err == nil {
+				found = true
+				if previous > sequence {
+					sequence = previous
+				}
+			}
+		}
+	}
+	if !found {
+		return base, nil
+	}
+	for sequence < ^uint64(0) {
+		sequence++
+		candidate := fmt.Sprintf("%s.%020d", base, sequence)
+		if _, err := os.Stat(candidate); os.IsNotExist(err) {
+			return candidate, nil
+		} else if err != nil {
+			return "", err
+		}
+	}
+	return "", errors.New("backup sequence exhausted")
 }
 
 func getRolloverSecond(interval int64) (rolloverAt int64) {

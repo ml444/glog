@@ -55,3 +55,29 @@ func TestCollectRotatedBackupPaths(t *testing.T) {
 		t.Fatalf("paths = %v (%d), want 2", paths, len(paths))
 	}
 }
+
+func TestSizeRotatorCloseReleasesFile(t *testing.T) {
+	cfg := &FileHandlerConfig{
+		FileDir:     t.TempDir(),
+		FileName:    "close",
+		FileSuffix:  "log",
+		MaxFileSize: 1 << 20,
+	}
+	r, err := NewSizeRotator(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	file, _, err := r.NeedRollover([]byte("hello"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := r.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if r.file != nil {
+		t.Fatal("rotator retained a closed file")
+	}
+	if _, err := file.Write([]byte("after close")); err == nil {
+		t.Fatal("write unexpectedly succeeded after Close")
+	}
+}
