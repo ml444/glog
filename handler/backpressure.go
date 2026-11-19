@@ -81,17 +81,28 @@ func (c *BackpressureCounter) AddTimedOut() {
 	atomic.AddUint64(&c.timedOut, 1)
 }
 
-func (c *BackpressureCounter) AllowSample(rate uint64) bool {
+func (c *BackpressureCounter) AddSampled() {
+	atomic.AddUint64(&c.sampled, 1)
+}
+
+// ShouldSample reports whether this overloaded entry should be retained.
+// Call AddSampled only after the entry has actually been enqueued.
+func (c *BackpressureCounter) ShouldSample(rate uint64) bool {
 	if rate <= 1 {
-		atomic.AddUint64(&c.sampled, 1)
 		return true
 	}
 	n := atomic.AddUint64(&c.sampleSeq, 1)
-	if n%rate == 0 {
-		atomic.AddUint64(&c.sampled, 1)
-		return true
+	return n%rate == 0
+}
+
+// AllowSample preserves the previous convenience API for callers that only
+// need to make a sampling decision.
+func (c *BackpressureCounter) AllowSample(rate uint64) bool {
+	if !c.ShouldSample(rate) {
+		return false
 	}
-	return false
+	c.AddSampled()
+	return true
 }
 
 func (c *BackpressureCounter) Snapshot() BackpressureStats {
