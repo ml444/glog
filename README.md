@@ -22,19 +22,17 @@ busy logging pipelines.
 package main
 
 import (
-	"time"
-
 	"github.com/ml444/glog"
 )
 
 func main() {
+	defer log.Stop()
 	log.Info()
 	log.Debug("hello world")                            // No output by default
 	log.Info("hello world")
 	log.Warn("hello world")
 	log.Error("hello world")
-	time.Sleep(time.Millisecond * 10)
-	log.Printf("%s alone could waken love!", "Love")    // No output by default
+	log.Printf("%s alone could waken love!", "Love")
 	log.Debugf("%s alone could waken love!", "Love")    // No output by default
 	log.Infof("%s alone could waken love!", "Love")
 	log.Warnf("%s alone could waken love!", "Love")
@@ -44,8 +42,8 @@ func main() {
 **Similar result:**
 ![!QuickStart](https://i.imgur.com/U0xrUeQ.png)
 
-By default, the logs are output to standard output and the logger level is set
-to Info level, so the Debug level logs in this example are not output.
+By default, logs are output to standard output and the logger level is set to
+Print. Debug messages are filtered while Print and higher levels are emitted.
 Different logging levels are identified by different colors.
 
 ### General config
@@ -157,7 +155,7 @@ Available strategies:
 | `BackpressureStrategyBlock` | Wait until the queue has room. This preserves logs but can slow callers down. |
 | `BackpressureStrategyDrop` | Drop immediately when the queue is full and call `OnError`/`ErrCallback`. |
 | `BackpressureStrategyTimeout` | Wait up to `Timeout`, then count a timeout and report `ErrBackpressureTimeout`. |
-| `BackpressureStrategySample` | When full, keep one message every `SampleRate` attempts and drop the rest. |
+| `BackpressureStrategySample` | When full, attempt to keep one message every `SampleRate` attempts without blocking and drop the rest. |
 
 Example:
 
@@ -211,6 +209,98 @@ Each counter group contains:
 - `TimedOut`: messages rejected after a timeout.
 - `Sampled`: messages kept by the sample strategy while under pressure.
 
+### High-throughput usage
+
+Guard expensive arguments with `Enabled` so they are not computed when a level
+is disabled:
+
+```go
+if log.Enabled(log.DebugLevel) {
+	log.Debug("snapshot: ", buildExpensiveSnapshot())
+}
+```
+
+If the output does not need goroutine IDs, disable their collection. Independent
+loggers can use the same options as `InitLog`:
+
+```go
+logger, err := log.New(
+	log.SetLoggerName("serviceName"),
+	log.SetRecordRoutineID(false),
+	log.SetWorkerConfigs(log.NewDefaultJsonFileWorkerConfig("./logs")),
+)
+if err != nil {
+	return err
+}
+defer logger.Stop()
+```
+
+The file handler now applies backpressure before formatting and formats accepted
+entries in reusable batches. Entries rejected by Drop or Sample do not consume
+formatting work.
+
+Time-based rotation deletes only backups exceeding `BackupCount`. Repeated time
+suffixes receive numeric sequence suffixes instead of overwriting an existing
+backup; these files also count toward the retention limit.
+
+Size-limited rotators accept writes up to and including `MaxFileSize` and reject
+an oversized formatted batch with `ErrFileSizeLimit`, including immediately
+after a time rollover. Rejected batches are delivered to `ErrCallback` rather
+than written past the limit.
+
+The file handler snapshots the Entry and Caller before `Emit` returns, so callers
+can reuse the original objects afterward. Error callbacks receive owned byte
+slices that can be retained for asynchronous backups or retries. Built-in
+formatters use batch appends; custom formatters always use their `Format` method
+to preserve overrides such as redaction.
+
+### Reinitialization and resource lifetime
+
+`InitLog` publishes the new logger, waits for in-flight package-level log calls
+to finish, then stops the old logger. New calls use the new logger during this
+wait. Streamers and custom handlers shared through configuration are closed only
+when the last logger using them stops.
+
+`GetLogger` returns a snapshot of the current instance. Use `New` and manage
+`Stop` explicitly for long-lived independent loggers. Coordinate configuration
+updates in the application; do not call `InitLog` synchronously from log argument
+formatters or output callbacks.
+
+Concurrent `logger.Stop()` calls wait for the same shutdown and return its first
+close error. Every handler is still closed. Once a file handler starts closing,
+blocked enqueue operations are released; `Emit` after close returns
+`ErrHandlerClosed`.
+
+Worker output-error callbacks and file `ErrCallback` calls run asynchronously,
+serialized per worker or file handler, independently of the output goroutines.
+They may call `Stop`/`Close`. Shutdown drains accepted log entries but does not
+wait for these callbacks; applications requiring callback completion must
+coordinate it explicitly. Keep callbacks short to avoid queued error reports.
+Producer backpressure callbacks and handler-close callbacks remain synchronous.
+
+### Configuration inheritance and runtime levels
+
+- Handler and formatter setters replace competing choices, including custom
+  implementations; the last setter wins.
+- An empty formatter `LoggerName` uses the name captured in each Entry. Runtime
+  `logger.SetLoggerName` updates subsequent entries, including a reset to an
+  empty name, without changing queued entries or other loggers. An explicit
+  formatter name takes precedence. Use `SetLoggerName`/`GetLoggerName` instead
+  of concurrently accessing `logger.Name` directly. Custom formatters can read
+  `Entry.LoggerName`; `LoggerNameSet` distinguishes a captured empty name.
+- `SetRecordCaller(0)` locates the calling application code for both package
+  functions and logger methods. A positive skip omits application wrapper frames.
+- Default workers use `NoneLevel` to follow the logger. An explicit nonzero
+  worker level remains an additional threshold.
+- An empty formatter `TimeLayout` inherits the global layout; an explicit layout
+  takes precedence. Standalone built-in formatters use the default time layout
+  when no layout is specified.
+- An explicit `SetColorRender` overrides built-in text formatter color settings.
+- `NewLogger` copies configuration. Failed `InitLog` calls preserve the previous
+  logger and config, so retries do not inherit failed changes.
+- Use `SetLevel`, `GetLevel`, and `Enabled` for concurrent runtime level access;
+  do not read or write the public `Level` field concurrently.
+
 ### Enum of levels
 To be compatible with the logging levels of the standard library, three levels 
 of print, fatal and panic have been added.
@@ -224,8 +314,8 @@ const (
 	InfoLevel
 	WarnLevel
 	ErrorLevel
-	FatalLevel
 	PanicLevel
+	FatalLevel
 )
 ```
 

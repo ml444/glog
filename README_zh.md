@@ -14,19 +14,17 @@ Glog 是一个异步的日志记录器的库，通过配置缓存大小来适应
 ```go
 package main
 import (
-	"time"
-
 	"github.com/ml444/glog"
 )
 
 func main() {
+	defer log.Stop()
 	log.Info()
 	log.Debug("hello world")                            // No output by default
 	log.Info("hello world")
 	log.Warn("hello world")
 	log.Error("hello world")
-	time.Sleep(time.Millisecond * 10)
-	log.Printf("%s alone could waken love!", "Love")    // No output by default
+	log.Printf("%s alone could waken love!", "Love")
 	log.Debugf("%s alone could waken love!", "Love")    // No output by default
 	log.Infof("%s alone could waken love!", "Love")
 	log.Warnf("%s alone could waken love!", "Love")
@@ -35,7 +33,7 @@ func main() {
 ```
 **类似的执行结果：**
 ![!QuickStart](https://i.imgur.com/U0xrUeQ.png)
-默认情况下，日志输出到标准输出，并且日志记录器的等级设置了Info级别，所以这个示例中的Debug级别的日志并没有被输出。
+默认情况下，日志输出到标准输出，并且日志记录器的等级设置为 Print，所以示例中的 Debug 日志不会输出，Print 及更高等级会输出。
 不同的日志水平，通过不同的颜色标识。
 
 ### 常规的设置
@@ -149,7 +147,7 @@ worker 队列默认使用 `BackpressureStrategyBlock`，保持原来的阻塞行
 | `BackpressureStrategyBlock` | 等待队列有空间。可以尽量保留日志，但可能拖慢调用方。 |
 | `BackpressureStrategyDrop` | 队列满时立即丢弃，并触发 `OnError`/`ErrCallback`。 |
 | `BackpressureStrategyTimeout` | 最多等待 `Timeout`，超时后记录 `TimedOut` 并返回 `ErrBackpressureTimeout`。 |
-| `BackpressureStrategySample` | 队列满时每 `SampleRate` 次保留一条，其余丢弃。 |
+| `BackpressureStrategySample` | 队列满时每 `SampleRate` 次非阻塞尝试保留一条，其余丢弃。 |
 
 示例：
 
@@ -203,6 +201,59 @@ for _, worker := range stats.Workers {
 - `TimedOut`：等待超时后被拒绝的日志数。
 - `Sampled`：在背压期间由采样策略保留下来的日志数。
 
+### 高吞吐场景
+
+昂贵参数可以先通过 `Enabled` 判断，避免在日志等级关闭时仍执行计算：
+
+```go
+if log.Enabled(log.DebugLevel) {
+	log.Debug("snapshot: ", buildExpensiveSnapshot())
+}
+```
+
+如果日志格式不需要协程 ID，可以关闭采集；独立 Logger 也可以直接复用与 `InitLog` 相同的 Option：
+
+```go
+logger, err := log.New(
+	log.SetLoggerName("serviceName"),
+	log.SetRecordRoutineID(false),
+	log.SetWorkerConfigs(log.NewDefaultJsonFileWorkerConfig("./logs")),
+)
+if err != nil {
+	return err
+}
+defer logger.Stop()
+```
+
+文件 Handler 会先执行背压准入，再在写入协程中批量格式化。队列已满且使用 Drop/Sample 策略时，被丢弃的日志不会再消耗格式化资源。
+
+按时间轮转时只清理超过 `BackupCount` 的备份。若时间后缀重复，会追加数字序号保留各次备份，序号文件同样参与保留数量限制。
+
+带大小限制的轮转器允许写入后大小等于 `MaxFileSize`；格式化批次超过上限时通过 `ErrCallback` 报告 `ErrFileSizeLimit`，不会越限写入，时间轮转后也会重新检查。
+
+文件 Handler 在 `Emit` 返回前保存 Entry 和 Caller 的快照；调用方随后可以复用原对象。错误回调收到的字节切片也可以保留用于异步备份或重试。内置 Formatter 使用批量追加路径，自定义 Formatter 始终调用其 `Format` 方法，保留脱敏等扩展行为。
+
+### 重新初始化与资源释放
+
+`InitLog` 发布新 Logger 后，会等待已经开始的包级日志调用完成，再关闭旧 Logger。等待期间，新调用使用新 Logger。通过配置复用的 Streamer 和 CustomHandler 只在最后一个使用它们的 Logger 停止时关闭。
+
+`GetLogger` 返回当前实例的快照；长期持有独立实例时，建议使用 `New` 创建并自行管理 `Stop`。修改配置和重新初始化应由应用统一管理，不要在日志参数的格式化方法或输出回调中同步调用 `InitLog`。
+
+并发调用 `logger.Stop()` 都会等待同一次关闭完成，并返回首次关闭错误；所有 Handler 仍会被尝试关闭。文件 Handler 关闭后，`Emit` 返回 `ErrHandlerClosed`，关闭过程中阻塞的入队操作也会被释放。
+
+Worker 输出错误回调和文件 `ErrCallback` 在独立于输出协程的异步协程中执行，各 Worker/文件 Handler 内串行处理，可以调用 `Stop`/`Close`。关闭会排空已接收的日志，但不等待这些错误回调；需要等待回调完成的应用应自行同步。回调应尽快返回，避免错误报告积压。生产端背压回调和 Handler 关闭错误回调仍然同步执行。
+
+### 配置继承与运行期等级
+
+- Handler/Formatter 的 Setter 会替换互斥配置，包括自定义实现，最后一次设置生效。
+- Formatter 的空 `LoggerName` 使用每条 Entry 捕获的 Logger 名称；`logger.SetLoggerName` 影响后续日志，支持重置为空，不修改已入队日志或其他 Logger。显式 Formatter 名称优先。并发修改/读取名称使用 `SetLoggerName`/`GetLoggerName`，不要直接访问 `logger.Name`。自定义 Formatter 可以读取 `Entry.LoggerName`，`LoggerNameSet` 用于区分显式捕获的空名称。
+- `SetRecordCaller(0)` 同时适用于包级函数和实例方法；正数 skip 用于跳过业务封装层。
+- 默认 Worker 的等级为 `NoneLevel`，表示跟随 Logger；使用 `SetLevel` 或 `NewWorkerConfig` 指定的非零等级继续作为该 Worker 的额外门槛。
+- Formatter 的空 `TimeLayout` 继承全局布局，显式布局优先；独立创建内置 Formatter 时，空布局使用默认时间格式。
+- 显式设置 `SetColorRender` 会统一覆盖内置文本 Formatter 的颜色开关。
+- `NewLogger` 使用配置副本；`InitLog` 失败时保留原 Logger 和配置，后续初始化不会继承失败配置。
+- 运行期通过 `logger.SetLevel`、`logger.GetLevel` 和 `logger.Enabled` 并发读写等级；不要并发直接访问 `logger.Level` 字段。
+
 ### 日志等级
 
 为了兼容标准库的logging等级，加入了print、fatal、panic三个等级:
@@ -217,8 +268,8 @@ const (
 	InfoLevel
 	WarnLevel
 	ErrorLevel
-	FatalLevel
 	PanicLevel
+	FatalLevel
 )
 ```
 
