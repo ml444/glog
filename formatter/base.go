@@ -15,6 +15,14 @@ type IFormatter interface {
 	Format(*message.Entry) ([]byte, error)
 }
 
+const DefaultTimeLayout = "01-02T15:04:05.000000"
+
+// AppendFormatter appends a formatted entry to dst. Handlers can use it to
+// format a batch without allocating one byte slice per entry.
+type AppendFormatter interface {
+	Append(dst []byte, entry *message.Entry) ([]byte, error)
+}
+
 var (
 	defaultLoggerName atomic.Value
 	localIP           string
@@ -101,6 +109,9 @@ type BaseFormatter struct {
 }
 
 func NewBaseFormatter(cfg BaseFormatterConfig) *BaseFormatter {
+	if cfg.TimeLayout == "" {
+		cfg.TimeLayout = DefaultTimeLayout
+	}
 	loggerName := cfg.LoggerName
 	if loggerName == "" {
 		if v, ok := defaultLoggerName.Load().(string); ok {
@@ -115,9 +126,16 @@ func NewBaseFormatter(cfg BaseFormatterConfig) *BaseFormatter {
 }
 
 func (b *BaseFormatter) ConvertToMessage(e *message.Entry) *message.Record {
-	m := &message.Record{
+	m := &message.Record{}
+	b.fillMessage(e, m)
+	return m
+}
+
+func (b *BaseFormatter) fillMessage(e *message.Entry, m *message.Record) {
+	loggerName := b.entryLoggerName(e)
+	*m = message.Record{
 		RoutineID: e.RoutineID,
-		Module:   b.loggerName,
+		Module:    loggerName,
 		Level:     e.Level.String(),
 		Datetime:  b.FormatDateTime(e.Time),
 		TraceID:   e.TraceID,
@@ -131,7 +149,7 @@ func (b *BaseFormatter) ConvertToMessage(e *message.Entry) *message.Record {
 	}
 	if b.cfg.EnableColor {
 		m.Level = Color(e.Level) + m.Level + colorEnd
-		m.Module = purple + b.loggerName + colorEnd
+		m.Module = purple + loggerName + colorEnd
 	}
 	if b.cfg.EnableIP {
 		m.IP = localIP
@@ -154,7 +172,13 @@ func (b *BaseFormatter) ConvertToMessage(e *message.Entry) *message.Record {
 		m.CallerLine = e.Caller.Line
 		m.CallerPath = e.Caller.File
 	}
-	return m
+}
+
+func (b *BaseFormatter) entryLoggerName(entry *message.Entry) string {
+	if b.cfg.LoggerName == "" && (entry.LoggerNameSet || entry.LoggerName != "") {
+		return entry.LoggerName
+	}
+	return b.loggerName
 }
 
 // const (

@@ -11,6 +11,7 @@ import (
 )
 
 type writeFunc func(b *bytes.Buffer, m *message.Record)
+type entryWriteFunc func(dst []byte, entry *message.Entry) []byte
 
 type TextFormatterConfig struct {
 	BaseFormatterConfig
@@ -49,6 +50,7 @@ type TextFormatter struct {
 	sepListLen    int
 	sepList       []string
 	writeFuncList []writeFunc
+	entryFuncList []entryWriteFunc
 }
 
 func NewTextFormatter(cfg TextFormatterConfig) *TextFormatter {
@@ -68,17 +70,168 @@ func NewTextFormatter(cfg TextFormatterConfig) *TextFormatter {
 
 // Format renders log's message into bytes
 func (f *TextFormatter) Format(entry *message.Entry) ([]byte, error) {
-	m := f.ConvertToMessage(entry)
-	b := &bytes.Buffer{}
-	b.Grow(defaultBufferGrow)
-	if f.isCustomizedWritePattern {
-		f.ColorRenderV2(b, m)
-	} else {
-		f.ColorRender(b, m)
-	}
+	return f.Append(make([]byte, 0, defaultBufferGrow), entry)
+}
 
-	b.WriteByte('\n')
-	return b.Bytes(), nil
+// Append renders an entry into dst without allocating an intermediate record
+// or output buffer. It is used by buffered handlers to build a batch.
+func (f *TextFormatter) Append(dst []byte, entry *message.Entry) ([]byte, error) {
+	if f.isCustomizedWritePattern {
+		dst = f.appendPattern(dst, entry)
+	} else {
+		dst = f.appendDefault(dst, entry)
+	}
+	return append(dst, '\n'), nil
+}
+
+func (f *TextFormatter) appendDefault(dst []byte, entry *message.Entry) []byte {
+	dst = f.appendLogName(dst, entry)
+	dst = append(dst, '(')
+	dst = f.appendPid(dst, entry)
+	dst = append(dst, ',')
+	dst = f.appendRoutineID(dst, entry)
+	dst = append(dst, ')', ' ')
+	dst = f.appendDateTime(dst, entry)
+	dst = append(dst, ' ', '<')
+	dst = f.appendTraceID(dst, entry)
+	dst = append(dst, '>', ' ')
+	dst = f.appendLogLevel(dst, entry)
+	dst = append(dst, ' ')
+	dst = f.appendCaller(dst, entry)
+	dst = append(dst, ' ')
+	return f.appendMessage(dst, entry)
+}
+
+func (f *TextFormatter) appendPattern(dst []byte, entry *message.Entry) []byte {
+	dst = append(dst, f.msgPrefix...)
+	for i, appendField := range f.entryFuncList {
+		dst = appendField(dst, entry)
+		if i < f.sepListLen {
+			dst = append(dst, f.sepList[i]...)
+		}
+	}
+	return append(dst, f.msgSuffix...)
+}
+
+func (f *TextFormatter) appendLogName(dst []byte, entry *message.Entry) []byte {
+	loggerName := f.entryLoggerName(entry)
+	if loggerName == "" {
+		return dst
+	}
+	if !f.DisableColors {
+		dst = append(dst, purple...)
+		dst = append(dst, loggerName...)
+		return append(dst, colorEnd...)
+	}
+	return append(dst, loggerName...)
+}
+
+func (f *TextFormatter) appendPid(dst []byte, _ *message.Entry) []byte {
+	return append(dst, pidStr...)
+}
+
+func (f *TextFormatter) appendIP(dst []byte, _ *message.Entry) []byte {
+	return append(dst, localIP...)
+}
+
+func (f *TextFormatter) appendHostName(dst []byte, _ *message.Entry) []byte {
+	return append(dst, localHostname...)
+}
+
+func (f *TextFormatter) appendRoutineID(dst []byte, entry *message.Entry) []byte {
+	return strconv.AppendInt(dst, entry.RoutineID, 10)
+}
+
+func (f *TextFormatter) appendDateTime(dst []byte, entry *message.Entry) []byte {
+	return f.AppendDateTime(dst, entry.Time)
+}
+
+func (f *TextFormatter) appendTraceID(dst []byte, entry *message.Entry) []byte {
+	return append(dst, entry.TraceID...)
+}
+
+func (f *TextFormatter) appendLogLevel(dst []byte, entry *message.Entry) []byte {
+	levelName := entry.Level.String()
+	if f.cfg.ShortLevel {
+		levelName = entry.Level.ShortString()
+	}
+	if !f.DisableColors {
+		dst = append(dst, Color(entry.Level)...)
+		dst = append(dst, levelName...)
+		return append(dst, colorEnd...)
+	}
+	return append(dst, levelName...)
+}
+
+func (f *TextFormatter) appendFileName(dst []byte, entry *message.Entry) []byte {
+	if entry.Caller == nil {
+		return dst
+	}
+	return append(dst, path.Base(entry.Caller.File)...)
+}
+
+func (f *TextFormatter) appendFilepath(dst []byte, entry *message.Entry) []byte {
+	if entry.Caller == nil {
+		return dst
+	}
+	return append(dst, entry.Caller.File...)
+}
+
+func (f *TextFormatter) appendFuncLine(dst []byte, entry *message.Entry) []byte {
+	if entry.Caller == nil {
+		return dst
+	}
+	return strconv.AppendInt(dst, int64(entry.Caller.Line), 10)
+}
+
+func (f *TextFormatter) appendFuncName(dst []byte, entry *message.Entry) []byte {
+	if entry.Caller == nil {
+		return dst
+	}
+	return append(dst, entry.Caller.Function...)
+}
+
+func (f *TextFormatter) appendFullCaller(dst []byte, entry *message.Entry) []byte {
+	if entry.Caller == nil || entry.Caller.File == "" {
+		return dst
+	}
+	if !f.DisableColors {
+		dst = append(dst, blue...)
+	}
+	dst = append(dst, entry.Caller.File...)
+	dst = append(dst, ':')
+	dst = strconv.AppendInt(dst, int64(entry.Caller.Line), 10)
+	dst = append(dst, ':')
+	dst = append(dst, entry.Caller.Function...)
+	if !f.DisableColors {
+		dst = append(dst, colorEnd...)
+	}
+	return dst
+}
+
+func (f *TextFormatter) appendCaller(dst []byte, entry *message.Entry) []byte {
+	if entry.Caller == nil || entry.Caller.File == "" {
+		return dst
+	}
+	if !f.DisableColors {
+		dst = append(dst, blue...)
+	}
+	dst = append(dst, path.Base(entry.Caller.File)...)
+	dst = append(dst, ':')
+	dst = strconv.AppendInt(dst, int64(entry.Caller.Line), 10)
+	dst = append(dst, ':')
+	dst = append(dst, entry.Caller.Function...)
+	if !f.DisableColors {
+		dst = append(dst, colorEnd...)
+	}
+	return dst
+}
+
+func (f *TextFormatter) appendMessage(dst []byte, entry *message.Entry) []byte {
+	if f.needsQuoting(entry.Message) {
+		return strconv.AppendQuote(dst, entry.Message)
+	}
+	return append(dst, entry.Message...)
 }
 
 func (f *TextFormatter) ColorRender(b *bytes.Buffer, m *message.Record) {
@@ -236,6 +389,7 @@ func (f *TextFormatter) parseWriteFuncList(src string) {
 		"Pid":         f.writePid,
 		"RoutineId":   f.writeRoutineID,
 		"Ip":          f.writeIP,
+		"IP":          f.writeIP,
 		"HostName":    f.writeHostName,
 		"CallerFile":  f.writeFileName,
 		"CallerPath":  f.writeFilepath,
@@ -248,11 +402,30 @@ func (f *TextFormatter) parseWriteFuncList(src string) {
 		//"Msecs":      f.writeTimeMs,
 		"Message": f.writeMessage,
 	}
+	entryFuncMap := map[string]entryWriteFunc{
+		"LoggerName":  f.appendLogName,
+		"Caller":      f.appendFullCaller,
+		"ShortCaller": f.appendCaller,
+		"Pid":         f.appendPid,
+		"RoutineId":   f.appendRoutineID,
+		"Ip":          f.appendIP,
+		"IP":          f.appendIP,
+		"HostName":    f.appendHostName,
+		"CallerFile":  f.appendFileName,
+		"CallerPath":  f.appendFilepath,
+		"CallerLine":  f.appendFuncLine,
+		"CallerName":  f.appendFuncName,
+		"TraceId":     f.appendTraceID,
+		"LevelName":   f.appendLogLevel,
+		"DateTime":    f.appendDateTime,
+		"Message":     f.appendMessage,
+	}
 	regexpPattern := regexp.MustCompile(`%\[(\w+)?\][sdfwvtq]`)
 	result := regexpPattern.FindAllStringSubmatchIndex(src, -1)
 	var preIdx int
 	var strList []string
 	var list []writeFunc
+	var entryList []entryWriteFunc
 	lastIdx := len(result) - 1
 	for i, idxList := range result {
 		if i == 0 && idxList[0] != 0 {
@@ -266,6 +439,7 @@ func (f *TextFormatter) parseWriteFuncList(src string) {
 		fn, ok := writeFuncMap[key]
 		if ok {
 			list = append(list, fn)
+			entryList = append(entryList, entryFuncMap[key])
 		} else {
 			println(fmt.Sprintf("%s in `PatternStyle`,but it isn't in writeFuncMap", key))
 		}
@@ -277,4 +451,5 @@ func (f *TextFormatter) parseWriteFuncList(src string) {
 	f.sepList = strList
 	f.sepListLen = len(strList)
 	f.writeFuncList = list
+	f.entryFuncList = entryList
 }

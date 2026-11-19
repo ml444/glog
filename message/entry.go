@@ -8,10 +8,12 @@ import (
 )
 
 type Entry struct {
-	Message   string
-	TraceID   string
-	RoutineID int64
-	Time      time.Time
-	Level     level.LogLevel
-	Caller    *runtime.Frame
+	Message       string
+	LoggerName    string
+	TraceID       string
+	RoutineID     int64
+	Time          time.Time
+	Level         level.LogLevel
+	LoggerNameSet bool
+	Caller        *runtime.Frame
 }

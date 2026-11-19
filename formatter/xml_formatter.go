@@ -35,14 +35,21 @@ func NewXMLFormatter(cfg XMLFormatterConfig) *XMLFormatter {
 }
 
 func (f *XMLFormatter) Format(entry *message.Entry) ([]byte, error) {
-	record := f.ConvertToMessage(entry)
-	b := &bytes.Buffer{}
+	return f.Append(make([]byte, 0, defaultBufferGrow), entry)
+}
+
+// Append renders an entry into dst so buffered handlers can reuse a batch.
+func (f *XMLFormatter) Append(dst []byte, entry *message.Entry) ([]byte, error) {
+	var record message.Record
+	f.fillMessage(entry, &record)
+	b := bytes.NewBuffer(dst)
 	encoder := xml.NewEncoder(b)
 	if f.PrettyPrint {
 		encoder.Indent("", "  ")
 	}
-	if err := encoder.Encode(record); err != nil {
+	if err := encoder.Encode(&record); err != nil {
 		return nil, fmt.Errorf("failed to encoding record to XML: %w", err)
 	}
+	b.WriteByte('\n')
 	return b.Bytes(), nil
 }

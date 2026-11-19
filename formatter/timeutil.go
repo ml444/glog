@@ -1,78 +1,77 @@
 package formatter
 
 import (
-	"fmt"
-	"math"
 	"strings"
 	"time"
 )
 
-//var formatTimeSec int64
-//var formatTimeSecStr string
-//var formatLayout string
-//var timeDecimalFormat string
-//var divisor int
-
 type TimeFormatter struct {
-	SecondLayout     string
-	formatTimeSecStr string
-	formatTimeSec    int64
-	divisor          int
+	Layout       string
+	SecondLayout string
 }
 
 func NewTimeFormatter(layout string) *TimeFormatter {
+	start, end := fractionBounds(layout)
 	secondLayout := layout
-	decimal := 0
-	if layout != "" {
-		if idx := strings.LastIndex(layout, "."); idx > 0 {
-			secondLayout = layout[:idx]
-			endIdx := strings.LastIndex(layout, "Z")
-			if endIdx == -1 {
-				endIdx = len(layout)
-			}
-			decimal = len(layout[idx+1 : endIdx])
-			if decimal > 9 {
-				decimal = 9
-			}
-		}
+	if start >= 0 {
+		secondLayout = layout[:start] + layout[end:]
 	}
-	tf := &TimeFormatter{
-		SecondLayout: secondLayout,
-	}
-	tf.SetTimeDecimalFormat(decimal)
-	return tf
+	return &TimeFormatter{Layout: layout, SecondLayout: secondLayout}
 }
+
+// AppendDateTime appends a timestamp directly to dst without allocating an
+// intermediate string. It is the fast path used by the text formatter.
+func (tf *TimeFormatter) AppendDateTime(dst []byte, t time.Time) []byte {
+	return t.AppendFormat(dst, tf.Layout)
+}
+
 func (tf *TimeFormatter) SetTimeDecimalFormat(decimal int) {
-	if decimal <= 0 {
-		return
+	if decimal < 0 {
+		decimal = 0
 	}
 	if decimal > 9 {
 		decimal = 9
 	}
-	if decimal == 9 {
-		tf.divisor = 1
-		return
+	start, end := fractionBounds(tf.Layout)
+	if start < 0 {
+		start = strings.LastIndex(tf.Layout, "05")
+		if start < 0 {
+			start = len(tf.Layout)
+		} else {
+			start += 2
+		}
+		end = start
 	}
-	tf.divisor = int(math.Pow10(9 - decimal))
+	fraction := ""
+	if decimal > 0 {
+		fraction = "." + strings.Repeat("0", decimal)
+	}
+	tf.Layout = tf.Layout[:start] + fraction + tf.Layout[end:]
+	tf.SecondLayout = tf.Layout[:start] + tf.Layout[start+len(fraction):]
 }
 
-// FormatDateTime Influenced by parallelism, small probability took the old value.
-// Because it is logging, we don't make it so strict
-func (tf *TimeFormatter) FormatDateTime(t time.Time) string {
-	sec := t.Unix()
-	pre := tf.formatTimeSec
-	preStr := tf.formatTimeSecStr
-	if pre == sec {
-		if tf.divisor > 0 {
-			return fmt.Sprintf("%s.%d", preStr, t.Nanosecond()/tf.divisor)
+func fractionBounds(layout string) (int, int) {
+	for start := 0; start+1 < len(layout); start++ {
+		if layout[start] != '.' && layout[start] != ',' {
+			continue
 		}
-		return preStr
+		digit := layout[start+1]
+		if digit != '0' && digit != '9' {
+			continue
+		}
+		end := start + 2
+		for end < len(layout) && layout[end] == digit {
+			end++
+		}
+		if end < len(layout) && layout[end] >= '0' && layout[end] <= '9' {
+			continue
+		}
+		return start, end
 	}
-	x := t.Format(tf.SecondLayout)
-	tf.formatTimeSec = sec
-	tf.formatTimeSecStr = x
-	if tf.divisor > 0 {
-		return fmt.Sprintf("%s.%d", x, t.Nanosecond()/tf.divisor)
-	}
-	return x
+	return -1, -1
+}
+
+// FormatDateTime formats a timestamp using the configured layout.
+func (tf *TimeFormatter) FormatDateTime(t time.Time) string {
+	return t.Format(tf.Layout)
 }
