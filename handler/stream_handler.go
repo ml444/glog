@@ -44,7 +44,9 @@ func (h *StreamHandler) format(record *message.Entry) ([]byte, error) {
 }
 
 func (h *StreamHandler) emit(msg []byte) error {
-	msg = append(msg, terminator)
+	if len(msg) == 0 || msg[len(msg)-1] != terminator {
+		msg = append(msg, terminator)
+	}
 	n, err := h.stream.Write(msg)
 	if err != nil {
 		if errors.Is(err, io.ErrShortWrite) {
